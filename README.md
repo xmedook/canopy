@@ -46,7 +46,7 @@ Plus OpenCode, HTTP endpoints, shell processes, and any agent that can read file
 
 ## The Command Center: OSA
 
-Canopy is the protocol. **OSA** (Open Source Agent) is the visual command center.
+Canopy is the protocol. **OSA** (Optimal System Agent) is the visual command center.
 
 While Canopy works perfectly from the terminal, OSA gives you a GUI to manage
 everything — think of it as the control tower for your agent fleet:
