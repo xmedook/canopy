@@ -18,16 +18,28 @@ The desktop app gives you a native command center: hire agents from a library of
 | **03** Run | Agent reads SYSTEM.md, discovers skills and specialists, operates autonomously |
 
 ```bash
-# Full stack (backend + desktop app) — one command
-git clone https://github.com/Miosa-osa/canopy.git
-cd canopy && make setup && make dev
-
-# Or just the protocol (no app needed)
-cd canopy/operations/sales-engine
-# Claude Code: reads SYSTEM.md automatically
-# OSA: osa connect .
-# Any agent: read SYSTEM.md, run skills via shell
+# Install and launch — one command
+curl -fsSL https://raw.githubusercontent.com/Miosa-osa/canopy/main/install.sh | bash
 ```
+
+Installs prerequisites, clones the repo, sets up the database, and opens the app. That's it.
+
+<details>
+<summary>Already cloned? Manual setup</summary>
+
+```bash
+cd canopy && make setup && make dev
+```
+</details>
+
+<details>
+<summary>Just want the protocol? No app needed</summary>
+
+```bash
+cd canopy/operations/sales-engine
+# Claude Code, Cursor, OSA, Codex — any agent reads SYSTEM.md and starts working
+```
+</details>
 
 ---
 
