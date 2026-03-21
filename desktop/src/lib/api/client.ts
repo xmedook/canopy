@@ -122,6 +122,20 @@ export async function login(email: string, password: string): Promise<string> {
 }
 
 export async function initializeAuth(): Promise<void> {
+  // 0. Probe backend — if it responds, disable mock mode
+  try {
+    const probe = await fetch(`${BASE_URL}${API_PREFIX}/health`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    if (probe.ok) {
+      useMock = false;
+    }
+  } catch {
+    // Backend not running — stay in mock mode
+    useMock = true;
+    return;
+  }
+
   // 1. Check Tauri store for a saved token
   try {
     const { load: loadStore } = await import("@tauri-apps/plugin-store");
@@ -154,10 +168,9 @@ export async function initializeAuth(): Promise<void> {
       // Backend not ready or credentials rejected — fall back to mock mode
       useMock = true;
     }
-  } else {
-    // No dev credentials configured — use mock mode
-    useMock = true;
   }
+  // If no dev credentials but backend is up, useMock stays false —
+  // the app will show the login page for the user to enter credentials
 }
 
 // ── Typed Error ───────────────────────────────────────────────────────────────
