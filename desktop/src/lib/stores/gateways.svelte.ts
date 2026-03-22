@@ -81,6 +81,29 @@ class GatewaysStore {
     }
   }
 
+  async updateGateway(
+    id: string,
+    data: Partial<Gateway>,
+  ): Promise<Gateway | null> {
+    const previous = this.gateways;
+    this.gateways = this.gateways.map((g) =>
+      g.id === id ? { ...g, ...data } : g,
+    );
+    try {
+      const updated = await gatewaysApi.update(id, data);
+      this.gateways = this.gateways.map((g) => (g.id === id ? updated : g));
+      this.error = null;
+      toastStore.success("Gateway updated", updated.name ?? "");
+      return updated;
+    } catch (e) {
+      this.gateways = previous;
+      const msg = (e as Error).message;
+      this.error = msg;
+      toastStore.error("Failed to update gateway", msg);
+      return null;
+    }
+  }
+
   getById(id: string): Gateway | null {
     return this.gateways.find((g) => g.id === id) ?? null;
   }

@@ -38,9 +38,9 @@ defmodule CanopyWeb.DocumentController do
   end
 
   def show(conn, %{"path" => path_parts} = params) do
-    with {:ok, ref_dir} <- resolve_reference_dir(params) do
-      file_path = Path.join([ref_dir | path_parts])
-
+    with {:ok, ref_dir} <- resolve_reference_dir(params),
+         file_path = Path.join([ref_dir | path_parts]),
+         true <- safe_path?(ref_dir, file_path) do
       case File.read(file_path) do
         {:ok, content} ->
           json(conn, %{
@@ -56,14 +56,18 @@ defmodule CanopyWeb.DocumentController do
           conn |> put_status(500) |> json(%{error: inspect(reason)})
       end
     else
+      false ->
+        conn |> put_status(400) |> json(%{error: "invalid_path"})
+
       {:error, reason} ->
         conn |> put_status(404) |> json(%{error: reason})
     end
   end
 
   def create(conn, %{"path" => relative_path, "content" => content} = params) do
-    with {:ok, ref_dir} <- resolve_reference_dir(params) do
-      file_path = Path.join(ref_dir, relative_path)
+    with {:ok, ref_dir} <- resolve_reference_dir(params),
+         file_path = Path.join(ref_dir, relative_path),
+         true <- safe_path?(ref_dir, file_path) do
       dir = Path.dirname(file_path)
 
       with :ok <- File.mkdir_p(dir),
@@ -74,14 +78,18 @@ defmodule CanopyWeb.DocumentController do
           conn |> put_status(500) |> json(%{error: inspect(reason)})
       end
     else
+      false ->
+        conn |> put_status(400) |> json(%{error: "invalid_path"})
+
       {:error, reason} ->
         conn |> put_status(404) |> json(%{error: reason})
     end
   end
 
   def update(conn, %{"path" => path_parts, "content" => content} = params) do
-    with {:ok, ref_dir} <- resolve_reference_dir(params) do
-      file_path = Path.join([ref_dir | path_parts])
+    with {:ok, ref_dir} <- resolve_reference_dir(params),
+         file_path = Path.join([ref_dir | path_parts]),
+         true <- safe_path?(ref_dir, file_path) do
       dir = Path.dirname(file_path)
       relative_path = Path.join(path_parts)
 
@@ -110,15 +118,18 @@ defmodule CanopyWeb.DocumentController do
           conn |> put_status(500) |> json(%{error: inspect(reason)})
       end
     else
+      false ->
+        conn |> put_status(400) |> json(%{error: "invalid_path"})
+
       {:error, reason} ->
         conn |> put_status(404) |> json(%{error: reason})
     end
   end
 
   def delete(conn, %{"path" => path_parts} = params) do
-    with {:ok, ref_dir} <- resolve_reference_dir(params) do
-      file_path = Path.join([ref_dir | path_parts])
-
+    with {:ok, ref_dir} <- resolve_reference_dir(params),
+         file_path = Path.join([ref_dir | path_parts]),
+         true <- safe_path?(ref_dir, file_path) do
       case File.rm(file_path) do
         :ok ->
           json(conn, %{ok: true})
@@ -130,6 +141,9 @@ defmodule CanopyWeb.DocumentController do
           conn |> put_status(500) |> json(%{error: inspect(reason)})
       end
     else
+      false ->
+        conn |> put_status(400) |> json(%{error: "invalid_path"})
+
       {:error, reason} ->
         conn |> put_status(404) |> json(%{error: reason})
     end
@@ -199,5 +213,12 @@ defmodule CanopyWeb.DocumentController do
         File.mkdir_p!(dir)
         {:ok, dir}
     end
+  end
+
+  # Validate that a resolved path doesn't escape the reference directory via ".." traversal
+  defp safe_path?(ref_dir, file_path) do
+    expanded = Path.expand(file_path)
+    expanded_ref = Path.expand(ref_dir)
+    String.starts_with?(expanded, expanded_ref <> "/") or expanded == expanded_ref
   end
 end

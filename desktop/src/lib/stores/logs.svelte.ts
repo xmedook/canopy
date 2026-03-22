@@ -122,7 +122,18 @@ class LogsStore {
   async fetch(params: LogFetchParams = {}): Promise<void> {
     this.loading = true;
     try {
-      const raw = await logsApi.list(params.limit ?? 200);
+      const level =
+        params.level ??
+        (this.filterLevels.size === 1
+          ? Array.from(this.filterLevels)[0]
+          : undefined);
+      const source = params.source ?? this.filterSource;
+      const agent_id = params.agent_id ?? this.filterAgent;
+      const raw = await logsApi.list(params.limit ?? 200, {
+        level,
+        source,
+        agent_id,
+      });
       const entries: LogEntryEx[] = raw.map((e) => ({
         ...e,
         level: this.#normalizeLevel(e.level as LogLevel),
@@ -152,6 +163,7 @@ class LogsStore {
         this.connected = false;
       },
       onEvent: (event) => {
+        if (this.isPaused) return;
         const eventType = (event as { type: string }).type;
         if (eventType === "log_entry" || event.type === "system_event") {
           const payload = (event as { payload?: LogEntryEx }).payload;

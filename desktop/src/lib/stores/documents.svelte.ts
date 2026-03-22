@@ -29,10 +29,9 @@ class DocumentsStore {
         this.selected = null;
       }
     } catch (err) {
-      // Non-fatal: endpoint may not yet be available on the backend.
       this.documents = [];
       this.tree = [];
-      this.error = null;
+      this.error = (err as Error).message;
     } finally {
       this.loading = false;
     }

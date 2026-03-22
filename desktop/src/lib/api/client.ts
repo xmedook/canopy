@@ -525,6 +525,11 @@ export const agents = {
     request<CanopyAgent>(`/agents/${id}/resume`, { method: "POST" }),
   terminate: (id: string) =>
     request<void>(`/agents/${id}`, { method: "DELETE" }),
+  hierarchy: () => request<{ hierarchy: unknown[] }>("/agents/hierarchy"),
+  runs: (id: string) =>
+    request<{ runs: unknown[]; total: number }>(`/agents/${id}/runs`),
+  inbox: (id: string) =>
+    request<{ items: unknown[]; pending_count: number }>(`/agents/${id}/inbox`),
 };
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
@@ -592,6 +597,15 @@ export const schedules = {
     request<{ runs: HeartbeatRun[] }>(`/schedules/${id}/runs`),
   triggerNow: (id: string) =>
     request<HeartbeatRun>(`/schedules/${id}/trigger`, { method: "POST" }),
+  queue: () => request<{ queue: unknown[] }>("/schedules/queue"),
+  wakeAll: () =>
+    request<{ ok: boolean; enabled_count: number }>("/schedules/wake-all", {
+      method: "POST",
+    }),
+  pauseAll: () =>
+    request<{ ok: boolean; paused_count: number }>("/schedules/pause-all", {
+      method: "POST",
+    }),
 };
 
 // ── Issues ────────────────────────────────────────────────────────────────────
@@ -615,6 +629,20 @@ export const issues = {
     request<{ ok: boolean; message: string }>(`/issues/${issueId}/dispatch`, {
       method: "POST",
     }),
+  assign: (id: string, agentId: string) =>
+    request<void>(`/issues/${id}/assign`, {
+      method: "POST",
+      body: JSON.stringify({ agent_id: agentId }),
+    }),
+  comments: (id: string) =>
+    request<{ comments: unknown[] }>(`/issues/${id}/comments`),
+  addComment: (id: string, body: string) =>
+    request<void>(`/issues/${id}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
+  checkout: (id: string) =>
+    request<void>(`/issues/${id}/checkout`, { method: "POST" }),
 };
 
 // ── Goals ─────────────────────────────────────────────────────────────────────
@@ -626,16 +654,18 @@ export const goals = {
     );
     return data.goals ?? [];
   },
-  create: (projectId: string, body: Partial<Goal>) =>
-    request<Goal>(`/projects/${projectId}/goals`, {
+  get: (id: string) => request<{ goal: Goal }>(`/goals/${id}`),
+  create: (_projectId: string, body: Partial<Goal>) =>
+    request<Goal>("/goals", {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  update: (projectId: string, id: string, body: Partial<Goal>) =>
-    request<Goal>(`/projects/${projectId}/goals/${id}`, {
+  update: (_projectId: string, id: string, body: Partial<Goal>) =>
+    request<Goal>(`/goals/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  delete: (id: string) => request<void>(`/goals/${id}`, { method: "DELETE" }),
   decompose: (
     goalId: string,
     opts?: { max_issues?: number; auto_assign?: boolean },
@@ -647,6 +677,8 @@ export const goals = {
         body: JSON.stringify(opts ?? {}),
       },
     ),
+  ancestry: (id: string) =>
+    request<{ ancestry: Goal[] }>(`/goals/${id}/ancestry`),
 };
 
 // ── Projects ──────────────────────────────────────────────────────────────────
@@ -668,6 +700,10 @@ export const projects = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  delete: (id: string) =>
+    request<void>(`/projects/${id}`, { method: "DELETE" }),
+  workspaces: (id: string) =>
+    request<{ workspaces: Workspace[] }>(`/projects/${id}/workspaces`),
 };
 
 // ── Costs ─────────────────────────────────────────────────────────────────────
@@ -679,10 +715,23 @@ export const costs = {
   policies: () => request<{ policies: BudgetPolicy[] }>("/budgets"),
   incidents: () =>
     request<{ incidents: BudgetIncident[] }>("/budgets/incidents"),
-  daily: () =>
-    request<{ points: Array<{ date: string; cost_cents: number }> }>(
-      "/costs/daily",
-    ),
+  daily: (params?: { from?: string; to?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.from) qs.set("from", params.from);
+    if (params?.to) qs.set("to", params.to);
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    return request<{ points: Array<{ date: string; cost_cents: number }> }>(
+      `/costs/daily${query}`,
+    );
+  },
+  events: () => request<{ events: unknown[] }>("/costs/events"),
+  upsertPolicy: (scopeType: string, scopeId: string, body: unknown) =>
+    request<void>(`/budgets/${scopeType}/${scopeId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  resolveIncident: (id: string) =>
+    request<void>(`/budgets/incidents/${id}/resolve`, { method: "POST" }),
 };
 
 // ── Activity ──────────────────────────────────────────────────────────────────
@@ -706,9 +755,14 @@ export const inbox = {
     return data.messages ?? data.items ?? [];
   },
   action: (id: string, actionId: string) =>
-    request<void>(`/inbox/${id}/actions/${actionId}`, { method: "POST" }),
+    request<void>(`/inbox/${id}/action`, {
+      method: "POST",
+      body: JSON.stringify({ action_id: actionId }),
+    }),
   dismiss: (id: string) =>
-    request<void>(`/inbox/${id}/dismiss`, { method: "POST" }),
+    request<void>(`/inbox/${id}/read`, { method: "POST" }),
+  read: (id: string) => request<void>(`/inbox/${id}/read`, { method: "POST" }),
+  readAll: () => request<void>("/inbox/read-all", { method: "POST" }),
 };
 
 // ── Skills ────────────────────────────────────────────────────────────────────
@@ -720,6 +774,25 @@ export const skills = {
   },
   toggle: (id: string) =>
     request<Skill>(`/skills/${id}/toggle`, { method: "POST" }),
+  get: (id: string) => request<{ skill: unknown }>(`/skills/${id}`),
+  bulkEnable: (ids: string[]) =>
+    request<void>("/skills/bulk-enable", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+  bulkDisable: (ids: string[]) =>
+    request<void>("/skills/bulk-disable", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+  categories: () => request<{ categories: unknown[] }>("/skills/categories"),
+  importSkill: (body: unknown) =>
+    request<void>("/skills/import", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  inject: (id: string) =>
+    request<void>(`/skills/${id}/inject`, { method: "POST" }),
 };
 
 // ── Webhooks ──────────────────────────────────────────────────────────────────
@@ -736,6 +809,16 @@ export const webhooks = {
     }),
   delete: (id: string) =>
     request<void>(`/webhooks/${id}`, { method: "DELETE" }),
+  get: (id: string) => request<{ webhook: unknown }>(`/webhooks/${id}`),
+  update: (id: string, body: unknown) =>
+    request<void>(`/webhooks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  test: (id: string) =>
+    request<void>(`/webhooks/${id}/test`, { method: "POST" }),
+  deliveries: (id: string) =>
+    request<{ deliveries: unknown[] }>(`/webhooks/${id}/deliveries`),
 };
 
 // ── Alerts ────────────────────────────────────────────────────────────────────
@@ -750,6 +833,16 @@ export const alerts = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  update: (id: string, body: Partial<AlertRule>) =>
+    request<AlertRule>(`/alerts/rules/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  delete: (id: string) =>
+    request<void>(`/alerts/rules/${id}`, { method: "DELETE" }),
+  get: (id: string) => request<{ rule: unknown }>(`/alerts/rules/${id}`),
+  evaluate: () => request<void>("/alerts/evaluate", { method: "POST" }),
+  history: () => request<{ history: unknown[] }>("/alerts/history"),
 };
 
 // ── Integrations ──────────────────────────────────────────────────────────────
@@ -761,14 +854,28 @@ export const integrations = {
     );
     return data.integrations ?? [];
   },
+  pullAll: () => request<void>("/integrations/pull-all", { method: "POST" }),
+  connect: (slug: string, config?: unknown) =>
+    request<void>(`/integrations/${slug}/connect`, {
+      method: "POST",
+      body: config !== undefined ? JSON.stringify(config) : undefined,
+    }),
+  disconnect: (slug: string) =>
+    request<void>(`/integrations/${slug}`, { method: "DELETE" }),
+  status: (slug: string) => request<unknown>(`/integrations/${slug}/status`),
 };
 
 // ── Adapters ──────────────────────────────────────────────────────────────────
 
 export const adapters = {
   list: async (): Promise<Adapter[]> => {
-    const data = await request<{ adapters: Adapter[] }>("/adapters");
-    return data.adapters ?? [];
+    try {
+      const data = await request<{ adapters: Adapter[] }>("/adapters");
+      return data.adapters ?? [];
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return [];
+      throw error;
+    }
   },
 };
 
@@ -782,6 +889,11 @@ export const gateways = {
   create: (body: Partial<Gateway>) =>
     request<Gateway>("/gateways", {
       method: "POST",
+      body: JSON.stringify(body),
+    }),
+  update: (id: string, body: Partial<Gateway>) =>
+    request<Gateway>(`/gateways/${id}`, {
+      method: "PUT",
       body: JSON.stringify(body),
     }),
   delete: (id: string) =>
@@ -876,6 +988,19 @@ export const workspaces = {
       method: "POST",
     }).then((data) => (data as { workspace: Workspace }).workspace ?? data);
   },
+  get: (id: string) => request<Workspace>(`/workspaces/${id}`),
+  update: (id: string, body: unknown) =>
+    request<Workspace>(`/workspaces/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  delete: (id: string) =>
+    request<void>(`/workspaces/${id}`, { method: "DELETE" }),
+  agents: (id: string) =>
+    request<{ agents: CanopyAgent[] }>(`/workspaces/${id}/agents`),
+  skills: (id: string) =>
+    request<{ skills: Skill[] }>(`/workspaces/${id}/skills`),
+  config: (id: string) => request<unknown>(`/workspaces/${id}/config`),
 };
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -903,12 +1028,20 @@ export const audit = {
 // ── Logs ──────────────────────────────────────────────────────────────────────
 
 export const logs = {
-  list: async (_limit = 100): Promise<LogEntry[]> => {
-    // Backend exposes /logs/stream (SSE only) — fall back to activity feed
-    const data = await request<{ events: LogEntry[] }>(
-      `/activity?limit=${_limit}`,
+  list: async (
+    limit = 100,
+    params?: { level?: string; source?: string; agent_id?: string },
+  ): Promise<LogEntry[]> => {
+    const qs = new URLSearchParams({ limit: String(limit) });
+    if (params?.level) qs.set("level", params.level);
+    if (params?.source && params.source !== "all")
+      qs.set("source", params.source);
+    if (params?.agent_id && params.agent_id !== "all")
+      qs.set("agent_id", params.agent_id);
+    const data = await request<{ logs: LogEntry[]; entries: LogEntry[] }>(
+      `/logs?${qs.toString()}`,
     );
-    return data.events ?? [];
+    return data.logs ?? data.entries ?? [];
   },
 };
 
@@ -978,6 +1111,11 @@ export const signals = {
   stats: async (): Promise<SignalStats> => {
     return request<SignalStats>("/signals/stats");
   },
+  classify: (body: unknown) =>
+    request<unknown>("/signals/classify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
 
 // ── Spawn ─────────────────────────────────────────────────────────────────────
@@ -992,6 +1130,8 @@ export const spawn = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  kill: (id: string) => request<void>(`/spawn/${id}`, { method: "DELETE" }),
+  history: () => request<{ history: unknown[] }>("/spawn/history"),
 };
 
 // ── Secrets ───────────────────────────────────────────────────────────────────
@@ -1035,6 +1175,13 @@ export const approvals = {
     request<Approval>(`/approvals/${id}/reject`, {
       method: "POST",
       body: JSON.stringify({ comment }),
+    }),
+  delete: (id: string) =>
+    request<void>(`/approvals/${id}`, { method: "DELETE" }),
+  comment: (id: string, body: string) =>
+    request<void>(`/approvals/${id}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
     }),
 };
 
@@ -1167,6 +1314,41 @@ export const templates = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+};
+
+// ── Invitations ───────────────────────────────────────────────────────────────
+
+export const invitations = {
+  list: () => request<{ invitations: unknown[] }>("/invitations"),
+  create: (body: unknown) =>
+    request<void>("/invitations", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  accept: (token: string) =>
+    request<void>(`/invitations/${token}/accept`, { method: "POST" }),
+};
+
+// ── Config Revisions ──────────────────────────────────────────────────────────
+
+export const configRevisions = {
+  list: () => request<{ revisions: unknown[] }>("/config/revisions"),
+  restore: (id: string) =>
+    request<void>(`/config/revisions/${id}/restore`, { method: "POST" }),
+};
+
+// ── Execution Workspaces ──────────────────────────────────────────────────────
+
+export const executionWorkspaces = {
+  list: () =>
+    request<{ execution_workspaces: unknown[] }>("/execution-workspaces"),
+  create: (body: unknown) =>
+    request<void>("/execution-workspaces", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  delete: (id: string) =>
+    request<void>(`/execution-workspaces/${id}`, { method: "DELETE" }),
 };
 
 // ── Enable/Disable Mock ──────────────────────────────────────────────────────

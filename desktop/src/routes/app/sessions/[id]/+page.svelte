@@ -9,6 +9,7 @@
   import ExecutionWorkspace from '$lib/components/sessions/ExecutionWorkspace.svelte';
   import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
   import { sessionsStore } from '$lib/stores/sessions.svelte';
+  import { toastStore } from '$lib/stores/toasts.svelte';
 
   const sessionId = $derived($page.params.id);
 
@@ -27,11 +28,14 @@
     sessionsStore.stopLiveStream();
   });
 
-  function handleReplay() {
-    // Replay: navigate to chat with session context
-    if (sessionsStore.selectedSession) {
-      void goto(`/app/chat?replay=${sessionsStore.selectedSession.id}`);
+  async function handleReplay() {
+    if (!sessionsStore.selectedSession) return;
+    // Re-fetch transcript to "replay" the session from the beginning
+    await sessionsStore.fetchTranscript(sessionsStore.selectedSession.id);
+    if (sessionsStore.selectedSession.status === 'active') {
+      sessionsStore.startLiveStream(sessionsStore.selectedSession.id);
     }
+    toastStore.success('Replaying session', 'Transcript reloaded from the beginning.');
   }
 
   function handleExport() {

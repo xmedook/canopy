@@ -79,19 +79,9 @@ defmodule CanopyWeb.AlertController do
 
     # Placeholder — future: evaluate enabled rules against live metrics
     # and create AlertHistory records when conditions are met
-    enabled_rules =
-      Repo.all(
-        from r in AlertRule,
-          where: r.enabled == true,
-          select: %{id: r.id, name: r.name, entity: r.entity}
-      )
-      |> then(fn rules ->
-        if workspace_id do
-          Enum.filter(rules, & &1.workspace_id == workspace_id)
-        else
-          rules
-        end
-      end)
+    query = from r in AlertRule, where: r.enabled == true
+    query = if workspace_id, do: where(query, [r], r.workspace_id == ^workspace_id), else: query
+    enabled_rules = Repo.all(query)
 
     json(conn, %{
       ok: true,

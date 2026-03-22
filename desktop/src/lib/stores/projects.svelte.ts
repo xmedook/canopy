@@ -126,6 +126,29 @@ class ProjectsStore {
     }
   }
 
+  async deleteProject(id: string): Promise<void> {
+    const previous = this.projects;
+    const previousSelected = this.selected;
+    this.projects = this.projects.filter((p) => p.id !== id);
+    if (this.selected?.id === id) {
+      this.selected =
+        this.projects.find((p) => p.status === "active") ??
+        this.projects[0] ??
+        null;
+    }
+    try {
+      await projectsApi.delete(id);
+      this.error = null;
+      toastStore.success("Project deleted");
+    } catch (e) {
+      this.projects = previous;
+      this.selected = previousSelected;
+      const msg = (e as Error).message;
+      this.error = msg;
+      toastStore.error("Failed to delete project", msg);
+    }
+  }
+
   selectProject(project: Project | null): void {
     this.selected = project;
   }

@@ -56,6 +56,38 @@ class WebhooksStore {
       toastStore.error("Failed to delete webhook", msg);
     }
   }
+
+  async updateWebhook(id: string, data: Partial<Webhook>): Promise<void> {
+    const previous = this.webhooks;
+    this.webhooks = this.webhooks.map((w) =>
+      w.id === id ? { ...w, ...data } : w,
+    );
+    try {
+      await webhooksApi.update(id, data);
+      this.error = null;
+      toastStore.success("Webhook updated");
+    } catch (e) {
+      this.webhooks = previous;
+      const msg = (e as Error).message;
+      this.error = msg;
+      toastStore.error("Failed to update webhook", msg);
+    }
+  }
+
+  async testWebhook(id: string): Promise<void> {
+    try {
+      await webhooksApi.test(id);
+      this.error = null;
+      toastStore.success(
+        "Webhook test sent",
+        "Test payload delivered successfully.",
+      );
+    } catch (e) {
+      const msg = (e as Error).message;
+      this.error = msg;
+      toastStore.error("Webhook test failed", msg);
+    }
+  }
 }
 
 export const webhooksStore = new WebhooksStore();

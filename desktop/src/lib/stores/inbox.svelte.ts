@@ -124,7 +124,9 @@ class InboxStore {
     }
   }
 
-  markRead(itemId: string): void {
+  async markRead(itemId: string): Promise<void> {
+    const previous = this.items;
+    const previousSelected = this.selected;
     this.items = this.items.map((i) =>
       i.id === itemId && i.status === "unread"
         ? { ...i, status: "read" as InboxItemStatus }
@@ -133,21 +135,41 @@ class InboxStore {
     if (this.selected?.id === itemId && this.selected.status === "unread") {
       this.selected = { ...this.selected, status: "read" };
     }
+    try {
+      await inboxApi.read(itemId);
+    } catch (e) {
+      this.items = previous;
+      this.selected = previousSelected;
+      const msg = (e as Error).message;
+      this.error = msg;
+      toastStore.error("Failed to mark as read", msg);
+    }
   }
 
-  markAllRead(): void {
+  async markAllRead(): Promise<void> {
+    const previous = this.items;
+    const previousSelected = this.selected;
     this.items = this.items.map((i) =>
       i.status === "unread" ? { ...i, status: "read" as InboxItemStatus } : i,
     );
     if (this.selected && this.selected.status === "unread") {
       this.selected = { ...this.selected, status: "read" };
     }
+    try {
+      await inboxApi.readAll();
+    } catch (e) {
+      this.items = previous;
+      this.selected = previousSelected;
+      const msg = (e as Error).message;
+      this.error = msg;
+      toastStore.error("Failed to mark all as read", msg);
+    }
   }
 
   selectItem(item: InboxItem | null): void {
     this.selected = item;
     if (item && item.status === "unread") {
-      this.markRead(item.id);
+      void this.markRead(item.id);
     }
   }
 }

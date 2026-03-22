@@ -114,11 +114,21 @@ class ChatStore {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    await sessionsApi.delete(sessionId);
+    const previousSessions = this.sessions;
+    const previousCurrent = this.currentSession;
+    const previousMessages = this.messages;
     this.sessions = this.sessions.filter((s) => s.id !== sessionId);
     if (this.currentSession?.id === sessionId) {
       this.currentSession = null;
       this.messages = [];
+    }
+    try {
+      await sessionsApi.delete(sessionId);
+    } catch (e) {
+      this.sessions = previousSessions;
+      this.currentSession = previousCurrent;
+      this.messages = previousMessages;
+      this.error = (e as Error).message;
     }
   }
 

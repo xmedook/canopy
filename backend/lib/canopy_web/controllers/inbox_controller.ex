@@ -74,22 +74,27 @@ defmodule CanopyWeb.InboxController do
   def read_all(conn, params) do
     workspace_id = params["workspace_id"]
 
-    query = from e in ActivityEvent, where: e.level == "notification"
+    query =
+      from e in ActivityEvent,
+        where: e.level == "notification" and
+          fragment("COALESCE((?->>'read')::boolean, false) = false", e.metadata)
+
     query = if workspace_id, do: where(query, [e], e.workspace_id == ^workspace_id), else: query
 
-    # Fetch and individually mark read — avoids raw SQL fragment in update_all set clause
-    events = Repo.all(query)
+    # Use Ecto.Adapters.SQL for the JSONB merge (fragment not supported in update_all set)
+    {count, _} =
+      from(e in query, select: e.id)
+      |> Repo.all()
+      |> case do
+        [] ->
+          {0, nil}
 
-    count =
-      Enum.reduce(events, 0, fn event, acc ->
-        updated_metadata = Map.put(event.metadata || %{}, "read", true)
-
-        event
-        |> Ecto.Changeset.change(metadata: updated_metadata)
-        |> Repo.update!()
-
-        acc + 1
-      end)
+        ids ->
+          from(e in ActivityEvent, where: e.id in ^ids)
+          |> Repo.update_all(
+            set: [metadata: %{"read" => true}, updated_at: DateTime.utc_now()]
+          )
+      end
 
     json(conn, %{ok: true, updated: count})
   end

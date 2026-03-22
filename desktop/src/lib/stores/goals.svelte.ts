@@ -168,6 +168,35 @@ class GoalsStore {
     this.selected = goal;
   }
 
+  async deleteGoal(id: string): Promise<void> {
+    if (!this.activeProjectId) {
+      toastStore.error("No active project");
+      return;
+    }
+    // Optimistic removal from tree
+    const removeFromTree = (nodes: GoalTreeNode[]): GoalTreeNode[] =>
+      nodes
+        .filter((n) => n.id !== id)
+        .map((n) => ({ ...n, children: removeFromTree(n.children) }));
+    const previousGoals = this.goals;
+    const previousSelected = this.selected;
+    this.goals = removeFromTree(this.goals);
+    if (this.selected?.id === id) {
+      this.selected = null;
+    }
+    try {
+      await goalsApi.delete(id);
+      this.error = null;
+      toastStore.success("Goal deleted");
+    } catch (e) {
+      this.goals = previousGoals;
+      this.selected = previousSelected;
+      const msg = (e as Error).message;
+      this.error = msg;
+      toastStore.error("Failed to delete goal", msg);
+    }
+  }
+
   setActiveProject(projectId: string): void {
     this.activeProjectId = projectId;
     this.goals = [];

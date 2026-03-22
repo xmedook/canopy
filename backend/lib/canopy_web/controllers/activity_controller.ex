@@ -28,7 +28,14 @@ defmodule CanopyWeb.ActivityController do
     query = if level, do: where(query, [e], e.level == ^level), else: query
 
     results = Repo.all(query)
-    total = Repo.aggregate(ActivityEvent, :count)
+
+    # Build filtered count query with the same conditions (without limit/offset/select)
+    count_query = from e in ActivityEvent
+    count_query = if workspace_id, do: where(count_query, [e], e.workspace_id == ^workspace_id), else: count_query
+    count_query = if agent_id, do: where(count_query, [e], e.agent_id == ^agent_id), else: count_query
+    count_query = if event_type, do: where(count_query, [e], e.event_type == ^event_type), else: count_query
+    count_query = if level, do: where(count_query, [e], e.level == ^level), else: count_query
+    total = Repo.aggregate(count_query, :count)
 
     json(conn, %{events: Enum.map(results, fn {e, agent_name} -> serialize(e, agent_name) end), total: total})
   end

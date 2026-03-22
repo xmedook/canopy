@@ -64,18 +64,45 @@ class AgentsStore {
   async fetchHierarchy(): Promise<void> {
     this.loading = true;
     try {
-      const data = await agentsApi.list();
-      // Build flat hierarchy nodes from agents — backend may return hierarchy
-      // via a dedicated endpoint. For now we synthesise from agent list.
-      this.hierarchy = data.map((a) => ({
-        agent_id: a.id,
-        agent_name: a.display_name || a.name,
-        reports_to: null,
-        org_role: "engineer" as const,
-        title: a.role,
-        org_order: 0,
-        children: [],
-      }));
+      const data = await agentsApi.hierarchy();
+      const raw = (data.hierarchy ?? []) as HierarchyNode[];
+
+      if (raw.length > 0) {
+        // Use the dedicated hierarchy endpoint result directly
+        this.hierarchy = raw;
+      } else {
+        // Fall back: synthesise from agent list using reports_to relationships
+        const agents = await agentsApi.list();
+        const nodeMap = new Map<string, HierarchyNode>();
+
+        // First pass: create a node for every agent
+        for (const a of agents) {
+          nodeMap.set(a.id, {
+            agent_id: a.id,
+            agent_name: a.display_name || a.name,
+            reports_to:
+              (a as unknown as { reports_to?: string | null }).reports_to ??
+              null,
+            org_role: "engineer" as const,
+            title: a.role,
+            org_order: 0,
+            children: [],
+          });
+        }
+
+        // Second pass: attach children to parents
+        const roots: HierarchyNode[] = [];
+        for (const node of nodeMap.values()) {
+          if (node.reports_to && nodeMap.has(node.reports_to)) {
+            nodeMap.get(node.reports_to)!.children.push(node);
+          } else {
+            roots.push(node);
+          }
+        }
+
+        this.hierarchy = roots;
+      }
+
       this.error = null;
     } catch (e) {
       const msg = (e as Error).message;

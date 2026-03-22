@@ -138,7 +138,13 @@ class CostsStore {
 
   async fetchTrends(): Promise<void> {
     try {
-      const data = await costsApi.daily();
+      const to = new Date();
+      const daysBack =
+        this.dateRange === "7d" ? 7 : this.dateRange === "90d" ? 90 : 30;
+      const from = new Date(to);
+      from.setDate(from.getDate() - daysBack);
+      const fmt = (d: Date) => d.toISOString().slice(0, 10);
+      const data = await costsApi.daily({ from: fmt(from), to: fmt(to) });
       this.dailyTrend = data.points ?? [];
     } catch {
       // Endpoint may not exist yet — fail silently with empty trend

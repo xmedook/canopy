@@ -110,6 +110,21 @@ class SpawnStore {
     return () => this.stopPolling();
   }
 
+  async cancelSpawn(id: string): Promise<void> {
+    const previous = this.instances;
+    this.instances = this.instances.filter((i) => i.id !== id);
+    try {
+      await spawnApi.kill(id);
+      this.error = null;
+      toastStore.success("Spawn cancelled");
+    } catch (e) {
+      this.instances = previous;
+      const msg = (e as Error).message;
+      this.error = msg;
+      toastStore.error("Failed to cancel spawn", msg);
+    }
+  }
+
   stopPolling(): void {
     if (this.#pollTimer !== null) {
       clearInterval(this.#pollTimer);

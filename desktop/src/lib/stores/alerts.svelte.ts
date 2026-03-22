@@ -42,6 +42,42 @@ class AlertsStore {
       this.loading = false;
     }
   }
+
+  async updateRule(
+    id: string,
+    data: Partial<AlertRule>,
+  ): Promise<AlertRule | null> {
+    const previous = this.rules;
+    this.rules = this.rules.map((r) => (r.id === id ? { ...r, ...data } : r));
+    try {
+      const updated = await alertsApi.update(id, data);
+      this.rules = this.rules.map((r) => (r.id === id ? updated : r));
+      this.error = null;
+      toastStore.success("Alert rule updated");
+      return updated;
+    } catch (e) {
+      this.rules = previous;
+      const msg = (e as Error).message;
+      this.error = msg;
+      toastStore.error("Failed to update alert rule", msg);
+      return null;
+    }
+  }
+
+  async deleteRule(id: string): Promise<void> {
+    const previous = this.rules;
+    this.rules = this.rules.filter((r) => r.id !== id);
+    try {
+      await alertsApi.delete(id);
+      this.error = null;
+      toastStore.success("Alert rule deleted");
+    } catch (e) {
+      this.rules = previous;
+      const msg = (e as Error).message;
+      this.error = msg;
+      toastStore.error("Failed to delete alert rule", msg);
+    }
+  }
 }
 
 export const alertsStore = new AlertsStore();

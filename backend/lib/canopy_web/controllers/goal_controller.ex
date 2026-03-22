@@ -95,7 +95,7 @@ defmodule CanopyWeb.GoalController do
         conn |> put_status(404) |> json(%{error: "not_found"})
 
       goal ->
-        chain = build_ancestry(goal, [])
+        chain = build_ancestry(goal, [], 20)
         json(conn, %{ancestry: chain})
     end
   end
@@ -149,14 +149,16 @@ defmodule CanopyWeb.GoalController do
 
   # --- Private helpers ---
 
-  defp build_ancestry(%Goal{parent_id: nil} = goal, acc) do
+  defp build_ancestry(%Goal{parent_id: nil} = goal, acc, _depth) do
     [serialize(goal) | acc]
   end
 
-  defp build_ancestry(%Goal{parent_id: parent_id} = goal, acc) do
+  defp build_ancestry(_goal, acc, 0), do: acc
+
+  defp build_ancestry(%Goal{parent_id: parent_id} = goal, acc, depth) do
     case Repo.get(Goal, parent_id) do
       nil -> [serialize(goal) | acc]
-      parent -> build_ancestry(parent, [serialize(goal) | acc])
+      parent -> build_ancestry(parent, [serialize(goal) | acc], depth - 1)
     end
   end
 
