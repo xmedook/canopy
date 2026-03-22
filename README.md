@@ -7,60 +7,420 @@
 
 Canopy is a workspace protocol that turns folders of markdown into fully operational AI companies. Define agents, skills, teams, budgets, and governance in plain files — then connect any AI backend (Claude Code, OSA, Codex, Gemini, Cursor) and watch them work autonomously on heartbeat schedules.
 
-The desktop app gives you a native command center: hire agents from a library of 160+, watch them collaborate in a pixel-art virtual office, monitor costs in real-time, and intervene when needed. One-click setup for OSA, Claude Code, Codex, and more.
+The desktop command center gives you a native app to hire from 160+ agents, watch them collaborate in a pixel-art virtual office, monitor token costs in real-time, and intervene when needed.
 
 **Manage AI systems, not prompts.**
 
-| Step | What Happens |
-|------|-------------|
-| **01** Pick a workspace | `sales-engine/`, `dev-shop/`, `content-factory/`, `cognitive-os/`, or build your own |
-| **02** Connect your agent | Claude Code, OSA, Cursor, Codex, Gemini, Aider, Windsurf, OpenClaw, or any agent |
-| **03** Run | Agent reads SYSTEM.md, discovers skills and specialists, operates autonomously |
+---
+
+## Quick Start
 
 ```bash
-# Install and launch — one command
+# Install and launch in one command
 curl -fsSL https://raw.githubusercontent.com/Miosa-osa/canopy/main/install.sh | bash
 ```
 
-Installs prerequisites, clones the repo, sets up the database, and opens the app. That's it.
-
-<details>
-<summary>Already cloned? Manual setup</summary>
+Installs prerequisites, clones the repo, sets up the database, and opens the app.
 
 ```bash
+# Already cloned? Manual setup
 cd canopy && make setup && make dev
 ```
-</details>
-
-<details>
-<summary>Just want the protocol? No app needed</summary>
 
 ```bash
+# Just want the protocol? No app needed
 cd canopy/operations/sales-engine
 # Claude Code, Cursor, OSA, Codex — any agent reads SYSTEM.md and starts working
 ```
-</details>
 
 ---
 
-## Works With
+## How It Works
 
-| | | | | | | | |
-|---|---|---|---|---|---|---|---|
-| **Claude Code** | **Codex** | **Cursor** | **Gemini** | **OSA** | **OpenClaw** | **Aider** | **Windsurf** |
-
-Plus OpenCode, HTTP endpoints, shell processes, and any agent that can read files.
+| Step | What Happens |
+|------|-------------|
+| **01** | Pick a workspace: `sales-engine/`, `dev-shop/`, `content-factory/`, `cognitive-os/`, or build your own |
+| **02** | Connect your agent: Claude Code, OSA, Cursor, Codex, Gemini, Aider, Windsurf, or OpenClaw |
+| **03** | Run: agent reads `SYSTEM.md`, discovers skills and specialists, operates autonomously |
 
 **If it can read markdown, it's hired.**
 
 ---
 
+## Architecture
+
+```
+Pick Workspace (sales-engine, dev-shop, content-factory, cognitive-os, custom)
+        |
+        v
+Backend API  (Elixir + Phoenix on :9089)
+        |-- Agent discovery (reads SYSTEM.md)
+        |-- Skill registry
+        |-- Team management
+        |-- Autonomy orchestration
+        |
+        v
+Desktop Command Center  (SvelteKit 2 + Tauri 2 on :5200)
+        |-- Dashboard (KPIs, active agents, budget burn)
+        |-- Virtual Office (pixel-art team visualization)
+        |-- Agent Roster (hire from 160+ agents)
+        |-- Sessions (live chat, tool inspection)
+        |-- Library (agents, skills, templates)
+        |-- Cost Console (per-agent token spend)
+        |-- Integrations (OSA, Claude Code, Codex, etc.)
+        |
+        v
+Connected Agents (Claude Code, OSA, Cursor, Codex, Gemini, Aider, Windsurf, OpenClaw)
+```
+
+### Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Elixir 1.15 + Phoenix 1.8.5 |
+| Database | PostgreSQL |
+| Frontend | SvelteKit 2 + Tauri 2 |
+| Auth | Guardian + JWT + Bcrypt |
+| Scheduler | Quantum |
+| Backend port | `:9089` |
+| Desktop port | `:5200` |
+| OSA port | `:8089` |
+
+---
+
+## Features
+
+### Workspace Protocol
+
+The Canopy workspace is a folder of plain markdown files. No proprietary server, no lock-in. The directory structure is the architecture:
+
+```
+L0  SYSTEM.md + company.yaml          Always loaded (~2K tokens)
+L1  agents/ + skills/                 On-demand (~2K tokens per item)
+L2  reference/ + workflows/ + spec/   Deep context (full content, via search)
+L3  engine/                           Invisible (0 tokens, powers skills)
+```
+
+`SYSTEM.md` is the entry point: identity, boot sequence, core loop, skills list, agents list, routing table, and handoff protocol — approximately 120 lines that define the entire operating system.
+
+`company.yaml` carries mission, budget, governance rules, org chart, and goal hierarchy with evidence gates.
+
+### Progressive Disclosure
+
+Every entity — agents, skills, teams, projects, tasks — exposes itself in three tiers. The agent requests only what it needs, when it needs it.
+
+```
+Tier 0 (Catalog)     Name + one-line description only. ~100 tokens per entity.
+Tier 1 (Activation)  Full manifest body loaded on demand. ~2K tokens per entity.
+Tier 2 (Full)        All referenced assets: scripts, linked docs, evidence schemas.
+```
+
+The catalog is always cheap. Full manifests cost only when actually used. This achieves 96% context reduction versus systems that load everything upfront.
+
+### Agent Hiring
+
+Browse and hire from a library of 160+ pre-built agents across 13 categories — or define your own in a markdown file. Agents are behavioral templates, not binaries.
+
+Each agent file defines role, tools, coordination rules, escalation path, and heartbeat behavior. One-click hire from the Command Center or drop the file into `agents/`.
+
+### Heartbeat Protocol
+
+Agents wake on schedule, check for work, execute, and delegate autonomously.
+
+```
+Agent wakes (schedule, task assignment, or mention)
+  -> Retrieves identity and role
+  -> Checks pending approvals
+  -> Fetches assigned tasks (sorted by priority)
+  -> Atomic checkout (prevents double-work)
+  -> Executes task
+  -> Comments on progress
+  -> Delegates subtasks to reports
+  -> Sleeps until next heartbeat
+```
+
+### Multi-Agent Coordination
+
+Tasks are the communication protocol. No agent-to-agent messaging required.
+
+- **Delegation** — create a child task assigned to a report
+- **Status** — modify task fields
+- **Escalation** — traverse parent chain up to orchestrator
+- **Atomic checkout** — only one agent works on a task at a time (409 = move on)
+
+Task hierarchy: Initiatives -> Projects -> Milestones -> Issues -> Sub-issues. Every task traces back to a company goal.
+
+### Budget Enforcement
+
+Three tiers — visibility, soft alert, hard ceiling:
+
+| Threshold | Behavior |
+|-----------|---------|
+| Always | Dashboard shows spend per agent, task, project, goal |
+| 80% | Soft alert — agent warned to focus on critical tasks only |
+| 100% | Hard stop — auto-pause, approval required to resume |
+
+Tracks tokens and dollars. Rollup at any level. Enforced at every execution boundary — scheduler, manual invoke, task checkout.
+
+### Governance
+
+You operate as the board of directors:
+
+- Agents cannot hire new agents without your approval
+- Strategy proposals require board review before execution
+- Budget overrides require explicit authorization
+- Every action logged in an immutable audit trail
+- Approval states: `pending` -> `approved` / `rejected` / `revision requested`
+
+### Session Persistence
+
+Agents resume context across heartbeats instead of starting fresh:
+
+- Task-scoped sessions persist across invocations
+- When context fills, generate handoff summary and start fresh
+- Compaction policy: max runs, max tokens, max age
+- Agent never loses progress — compacts and continues
+
+### Multi-Runtime Adapter Dispatch
+
+One orchestrator dispatches work to different runtimes based on task type:
+
+```
+/delegate "Write the API spec"    -> Claude Code (deep reasoning)
+/delegate "Refactor 50 files"     -> Codex (bulk code changes)
+/delegate "Analyze screenshots"   -> Gemini (multimodal)
+/delegate "Run test suite"        -> Shell process
+/delegate "Check production"      -> HTTP webhook
+```
+
+Each runtime is a pluggable adapter behind a standard interface.
+
+### Agent Commerce
+
+Agents can buy things. Stripe's Machine Payments Protocol (MPP) lets agents transact autonomously — pay for APIs, buy compute, purchase services from other agent workspaces.
+
+Canopy's budget enforcement wraps around MPP:
+
+- **Under threshold** — agent pays autonomously, logged to budget
+- **Over threshold** — payment queued for human approval
+- **Over budget** — hard stop, no payment authorized
+
+---
+
+## Workspace Protocol
+
+### File Structure
+
+A complete workspace — using the B2B sales engine as example:
+
+```
+sales-engine/
+|
+|  L0 — ALWAYS LOADED
+|
++-- SYSTEM.md                 Entry point: identity, boot sequence, core loop,
+|                             skills list, agents list, routing table
+|
++-- company.yaml              Mission, budget ($5K/mo), governance rules,
+|                             org chart, goal hierarchy with evidence gates
+|
+|  L1 — LOADED ON DEMAND
+|
++-- agents/
+|   +-- director.md           Pipeline review, deal strategy, forecasting
+|   +-- prospector.md         Lead generation, ICP matching, outbound sequences
+|   +-- closer.md             Discovery calls, demos, negotiation, close
+|   +-- researcher.md         Market intel, competitive analysis, account research
+|   +-- copywriter.md         Email sequences, proposals, case studies
+|
++-- skills/
+|   +-- prospect/SKILL.md    /prospect — find and qualify leads
+|   +-- pipeline/SKILL.md    /pipeline — view pipeline status, forecasting
+|   +-- qualify/SKILL.md     /qualify — run MEDDPICC qualification
+|   +-- close-plan/SKILL.md  /close-plan — build deal close strategy
+|   +-- battlecard/SKILL.md  /battlecard — competitive intel for a deal
+|
+|  L2 — DEEP CONTEXT
+|
++-- reference/
+|   +-- icp.md                Ideal customer profile, scoring rubric
+|   +-- meddpicc.md           Full qualification methodology
+|   +-- objections.md         20+ objections with response scripts
+|   +-- sequences.md          Email templates with A/B variants
+|
++-- workflows/
+|   +-- deal-cycle.md         7 phases: Research -> Outreach -> Discovery ->
+|                             Demo -> Proposal -> Negotiate -> Close
+|
++-- handoffs/
+|   +-- standard.md           Task clarity, constraints, expected genre
+|   +-- escalation.md         When to escalate, who to, with what evidence
+|
++-- spec/
+|   +-- PROCEDURES.md         Action bindings with typed parameters
+|   +-- WORKFLOW.md           FSM: lead states, deal states, triggers
+|   +-- contracts/
+|       +-- workspace.spec.md Self-validation and drift detection
+|
++-- teams/
+|   +-- outbound/TEAM.md      Members, shared budget, coordination rules
+|
++-- projects/
+|   +-- q2-pipeline/PROJECT.md Goals, milestones, budget envelope, assigned teams
+|
++-- tasks/
+|   +-- qualify-lead/TASK.md  Schedule, evidence gates, default assignee
+|
+|  L3 — ENGINE (invisible to agent, 0 tokens)
+|
++-- engine/
+|   +-- (CRM integration, email API, SQLite pipeline DB, lead scoring model)
+|      Pluggable: SQLite FTS5, sqlite-vec, Qdrant, Ollama, OpenAI, Neo4j
+|
+|  PROJECT LAYER — What agents BUILD
+|
++-- output/
+|   +-- proposals/
+|   +-- analyses/
+|   +-- reports/
+|   +-- sequences/
+|
++-- data/
+|   +-- leads.csv
+|   +-- pipeline.json
+|   +-- call-notes/
+|
++-- .canopy/                  Runtime state (gitignored)
+    +-- tasks/
+    +-- sessions/
+    +-- observations/
+```
+
+### Manifest Types
+
+**`TEAM.md`** — Defines an org subtree. Teams group agents, own a shared budget slice, and declare their coordination protocol.
+
+**`PROJECT.md`** — Defines planned work with milestones, budget allocation, and resource assignments. Carries explicit evidence gates.
+
+**`TASK.md`** — Portable, reusable task definition. Assigned to agents, tracked through the task hierarchy.
+
+---
+
+## Agent Library
+
+160+ pre-built agents across 13 categories:
+
+| Category | Examples |
+|----------|---------|
+| Engineering | backend, frontend, devops, security, performance, database |
+| Sales | director, prospector, closer, researcher, copywriter |
+| Marketing | strategist, content writer, SEO, growth, analyst |
+| Operations | project manager, coordinator, HR, finance |
+| Research | analyst, scientist, intelligence, competitive |
+| Design | UI/UX, brand, product |
+| Legal | contract review, compliance, IP |
+| Finance | CFO, controller, FP&A |
+| Customer Success | CSM, support, onboarding |
+| Product | PM, roadmap, discovery |
+| Executive | CEO, CTO, CPO, CMO |
+| Infrastructure | SRE, platform, cloud |
+| AI/ML | data scientist, model trainer, ML engineer |
+
+Browse the library in the Command Center or drop any agent file into your `agents/` folder.
+
+---
+
+## Adapters
+
+Canopy dispatches work to any connected runtime. Ten adapters supported out of the box:
+
+| Adapter | Install |
+|---------|---------|
+| **OSA** | `curl -fsSL https://raw.githubusercontent.com/Miosa-osa/OSA/main/install.sh \| bash` |
+| **Claude Code** | `npm install -g @anthropic-ai/claude-code` |
+| **Codex** | `npm install -g @openai/codex` |
+| **Cursor** | [cursor.sh](https://cursor.sh) |
+| **Gemini** | [ai.google.dev](https://ai.google.dev) |
+| **Aider** | `pip install aider-chat` |
+| **Windsurf** | [codeium.com/windsurf](https://codeium.com/windsurf) |
+| **OpenClaw** | `npm install -g openclaw` |
+| **JidoClaw** | `curl -fsSL https://raw.githubusercontent.com/robertohluna/jido_claw/main/install.sh \| bash` |
+| **Bash / HTTP** | Built-in |
+
+The Command Center auto-detects installed adapters and provides one-click setup wizards. Provider credentials are stored in the OS keychain via Tauri's secure store.
+
+---
+
+## Pre-Built Workspaces
+
+| Workspace | Description |
+|-----------|-------------|
+| `sales-engine` | B2B pipeline: prospecting, qualification, demos, close |
+| `dev-shop` | Software agency: planning, coding, review, deployment |
+| `content-factory` | Content production: strategy, writing, editing, publishing |
+| `cognitive-os` | Personal second brain: capture, process, connect, retrieve |
+| `custom` | Blank slate with full scaffolding |
+
+---
+
+## Development
+
+### Prerequisites
+
+- Elixir 1.15+
+- Node.js 20+
+- PostgreSQL 15+
+- Rust (for Tauri)
+
+### Make Targets
+
+```bash
+make setup       # Install all dependencies and create the database
+make dev         # Start backend + frontend in development mode
+make backend     # Start Phoenix backend only (:9089)
+make desktop     # Start SvelteKit + Tauri desktop app (:5200)
+make test        # Run full test suite
+make lint        # Run Elixir + TypeScript linters
+make format      # Auto-format all code
+make build       # Production build
+make release     # Build and package the Tauri desktop app
+make db.reset    # Drop, create, migrate, and seed the database
+make db.migrate  # Run pending migrations
+```
+
+### Environment
+
+The backend reads from `.env` in the project root. Required variables:
+
+```bash
+DATABASE_URL=postgres://localhost/canopy_dev
+SECRET_KEY_BASE=...         # mix phx.gen.secret
+GUARDIAN_SECRET_KEY=...     # mix guardian.gen.secret
+```
+
+Optional variables for adapter credentials live in `.env.local` and are never committed.
+
+### Ports
+
+| Service | Port |
+|---------|------|
+| Phoenix backend | `:9089` |
+| SvelteKit desktop | `:5200` |
+| OSA integration | `:8089` |
+
+### Running Tests
+
+```bash
+mix test                     # Backend tests
+cd desktop && npm run test   # Frontend tests
+make test                    # Both
+```
+
+---
+
 ## Theoretical Foundation
 
-Canopy implements the **Optimal System** architecture from *Signal Theory: The
-Architecture of Optimal Intent Encoding*. The protocol's directory structure,
-agent format, progressive disclosure, and governance model directly implement
-the paper's 7-layer system:
+Canopy implements the **Optimal System** architecture from *Signal Theory: The Architecture of Optimal Intent Encoding* (MIOSA Research, 2026). The protocol's directory structure, agent format, progressive disclosure, and governance model directly implement the paper's 7-layer system:
 
 1. **Network** — `company.yaml` and `reportsTo` define who connects to whom
 2. **Signal** — `S=(M,G,T,F,W)` encodes intent across 5 dimensions
@@ -68,874 +428,51 @@ the paper's 7-layer system:
 4. **Interface** — Progressive disclosure (L0/L1/L2) surfaces the right context
 5. **Data** — Markdown files are the storage substrate for organizational intent
 6. **Feedback** — Heartbeat cycles and quality gates close every loop
-7. **Governance** — SYSTEM.md encodes Beer's Viable System Model recursively
+7. **Governance** — `SYSTEM.md` encodes Beer's Viable System Model recursively
 
-Every design decision traces to one of four governing principles: **Shannon**
-(channel capacity), **Ashby** (requisite variety), **Beer** (viable structure),
-**Wiener** (feedback closure).
+Every design decision traces to one of four governing principles: **Shannon** (channel capacity), **Ashby** (requisite variety), **Beer** (viable structure), **Wiener** (feedback closure).
 
 ---
 
-## The Command Center
-
-Canopy is the protocol. The **Command Center** is the native desktop app (SvelteKit 2 + Tauri 2).
-
-```bash
-cd desktop && npm install && npm run tauri:dev
-```
-
-What you get:
-
-- **Dashboard** — KPIs, active agents, budget burn, recent activity across all workspaces
-- **Virtual Office** — Pixel-art view of your agent team working in real-time (screenshot above)
-- **Agent Roster** — Hire from 160+ agents across 13 categories, or define your own
-- **Sessions** — Live streaming chat with agents, tool call inspection, delegation tracking
-- **Library** — Browse agents, skills, operations, and templates. Install with one click
-- **Cost Console** — Token spend, per-agent breakdowns, anomaly alerts, budget enforcement
-- **Integrations** — Auto-detect and setup adapters (OSA, Claude Code, Codex, JidoClaw, etc.)
-- **Onboarding** — First-run wizard: pick provider, select adapter, configure workspace, launch
-
-### Supported Adapters
-
-| Adapter | Install |
-|---------|---------|
-| **OSA** | `curl -fsSL https://raw.githubusercontent.com/Miosa-osa/OSA/main/install.sh \| bash` |
-| **Claude Code** | `npm install -g @anthropic-ai/claude-code` |
-| **Codex** | `npm install -g @openai/codex` |
-| **JidoClaw** | `curl -fsSL https://raw.githubusercontent.com/robertohluna/jido_claw/main/install.sh \| bash` |
-| **OpenClaw** | `npm install -g openclaw` |
-| **Hermes** | `cargo install hermes-agent` |
-| **Bash / HTTP** | Built-in |
-
-The app auto-detects installed adapters and provides one-click setup wizards. Provider credentials are stored in the OS keychain via Tauri's secure store.
-
-Want just the protocol? Use Canopy with any terminal agent.
-Want the full experience? Use the Command Center for the visual layer.
-Want managed infrastructure? Use [MIOSA](#canopy--miosa) for VMs + scaling + marketplace.
+## Ecosystem
 
 ```
-Canopy (protocol)  →  Any agent reads it. Free. MIT license.
-Command Center     →  Native desktop app. Free. Open source.
-MIOSA (platform)   →  Managed VMs, marketplace, enterprise. Paid.
+Canopy (protocol)   ->  Any agent reads it. Free. MIT license.
+Command Center      ->  Native desktop app. Free. Open source.
+MIOSA (platform)    ->  Managed VMs, marketplace, enterprise. Paid.
 ```
+
+Canopy is the open-source foundation. [MIOSA](https://miosa.ai) provides managed infrastructure, a marketplace for buying and selling agent workspaces, and enterprise governance tools built on top of the same protocol.
 
 ---
 
-## Canopy is right for you if
+## Repository
 
-- You want to build autonomous AI companies, agencies, or workflows
-- You coordinate multiple agents (Claude, Codex, Cursor, Gemini) toward a common goal
-- You have 20 agent terminals open and lose track of what everyone is doing
-- You want agents running on heartbeats 24/7, but still want to audit and override
-- You want to build a second brain, knowledge system, or cognitive OS with AI
-- You want to monitor costs and enforce budgets across agent teams
-- You want pre-built workspaces you can download and run in 5 minutes
-- You want a workspace protocol that isn't locked to one vendor's server
-- You want your AI company to actually build apps, products, and integrations — not just chat
-- You want an org chart, project board, and budget console for your agent teams
-- You want to automate RPA workflows, browser tasks, and multi-step processes with natural language
+[https://github.com/Miosa-osa/canopy](https://github.com/Miosa-osa/canopy)
 
----
+Architecture reference docs live in `architecture/`:
 
-## What a Full Workspace Looks Like
-
-Here's a complete B2B sales workspace — every file, every layer:
-
-```
-sales-engine/
-│
-│  ═══════════════════════════════════════════════════════
-│  L0 — ALWAYS LOADED (~2K tokens total)
-│  Agent reads these on boot. Identity, goals, routing.
-│  ═══════════════════════════════════════════════════════
-│
-├── SYSTEM.md                      ← Entry point: identity, boot sequence, core loop,
-│                                     skills list, agents list, routing table,
-│                                     deal phases, handoff protocol, quality rules
-│                                     (~120 lines — the brain transplant)
-│
-├── company.yaml                   ← Mission, monthly budget ($5K), governance rules,
-│                                     org chart, goal hierarchy with evidence gates
-│
-│  ═══════════════════════════════════════════════════════
-│  L1 — LOADED ON DEMAND (~2K tokens per item)
-│  Agent discovers these from SYSTEM.md. Loads only the
-│  specific agent or skill needed for the current task.
-│  ═══════════════════════════════════════════════════════
-│
-├── agents/                        ← Specialist behavioral templates
-│   ├── director.md                   Pipeline review, deal strategy, forecasting
-│   ├── prospector.md                 Lead generation, ICP matching, outbound sequences
-│   ├── closer.md                     Discovery calls, demos, negotiation, close
-│   ├── researcher.md                 Market intel, competitive analysis, account research
-│   └── copywriter.md                 Email sequences, proposals, case studies
-│
-├── skills/                        ← Executable slash commands
-│   ├── prospect/SKILL.md            /prospect — find and qualify leads
-│   ├── pipeline/SKILL.md            /pipeline — view pipeline status, forecasting
-│   ├── qualify/SKILL.md             /qualify — run MEDDPICC qualification
-│   ├── close-plan/SKILL.md          /close-plan — build deal close strategy
-│   └── battlecard/SKILL.md          /battlecard — competitive intel for a deal
-│
-│  ═══════════════════════════════════════════════════════
-│  L2 — DEEP CONTEXT (loaded for specific tasks)
-│  Domain knowledge, workflows, handoff protocols.
-│  ═══════════════════════════════════════════════════════
-│
-├── reference/                     ← Domain knowledge (playbooks, decision trees)
-│   ├── icp.md                        Ideal customer profile, scoring rubric
-│   ├── meddpicc.md                   Full qualification methodology
-│   ├── objections.md                 20+ objections with response scripts
-│   └── sequences.md                  Email templates with A/B variants
-│
-├── workflows/                     ← Multi-phase pipelines with gates
-│   └── deal-cycle.md                 7 phases: Research → Outreach → Discovery →
-│                                     Demo → Proposal → Negotiate → Close
-│
-├── handoffs/                      ← Structured agent-to-agent transitions
-│   ├── standard.md                   Task clarity, constraints, expected genre
-│   └── escalation.md                 When to escalate, who to, with what evidence
-│
-├── spec/                          ← Executable specifications
-│   ├── PROCEDURES.md                 Action bindings with typed parameters
-│   ├── WORKFLOW.md                   FSM: lead states, deal states, triggers
-│   └── contracts/
-│       └── workspace.spec.md         Self-validation and drift detection
-│
-├── teams/                         ← Org subtrees within the operation
-│   └── outbound/TEAM.md             Members, shared budget, coordination rules
-│
-├── projects/                      ← Planned work with milestones and resource allocation
-│   └── q2-pipeline/PROJECT.md       Goals, milestones, budget envelope, assigned teams
-│
-├── tasks/                         ← Portable, reusable task definitions
-│   └── qualify-lead/TASK.md          Schedule, evidence gates, default assignee
-│
-│  ═══════════════════════════════════════════════════════
-│  L3 — ENGINE (invisible to agent)
-│  Skills call the engine. Zero tokens in context window.
-│  ═══════════════════════════════════════════════════════
-│
-├── engine/                        ← Optional software underneath
-│   └── (CRM integration, email API, SQLite pipeline DB,
-│        lead scoring model, sequence automation...)
-│        Pluggable: SQLite FTS5, sqlite-vec, Qdrant, Ollama,
-│        OpenAI, Neo4j, or bring your own backend.
-│        See architecture/engine-layer.md for all options.
-│
-│  ═══════════════════════════════════════════════════════
-│  PROJECT LAYER — What agents BUILD (work product)
-│  Not config. Not instructions. The actual output.
-│  User reviews this. Agents create and update it.
-│  ═══════════════════════════════════════════════════════
-│
-├── output/                       ← Generated artifacts
-│   ├── proposals/                   Proposals agents have written
-│   ├── analyses/                    Market research, competitive intel
-│   ├── reports/                     Pipeline reports, forecasts
-│   └── sequences/                   Generated email sequences
-│
-├── data/                         ← Working data
-│   ├── leads.csv                    Scraped/enriched lead lists
-│   ├── pipeline.json                Current deal pipeline state
-│   └── call-notes/                  Transcribed call summaries
-│
-└── .canopy/                      ← Runtime state (gitignored)
-    ├── tasks/                       Active task queue
-    ├── sessions/                    Agent session persistence
-    └── observations/                Friction patterns for learning loop
-```
-
-**~30 files of config. Unlimited output.** The Canopy layer is the brain. The project
-layer is what the brain produces. User comes back, opens `output/`, reviews what agents
-built. Approves, edits, or sends back for revision.
+- `architecture/heartbeat.md` — 9-step heartbeat protocol
+- `architecture/adapters.md` — runtime adapter interface
+- `architecture/budgets.md` — budget enforcement model
+- `architecture/governance.md` — approval gate system
+- `architecture/tasks.md` — task coordination protocol
+- `architecture/sessions.md` — session persistence and compaction
+- `architecture/processing-pipeline.md` — 6R knowledge pipeline
 
 ---
 
-## Features
+## Contributing
 
-### Progressive Disclosure
+1. Fork the repo and create a branch from `main`
+2. Run `make setup && make test` to verify your environment
+3. Make changes with tests
+4. Submit a pull request with a clear description of what changed and why
 
-Every entity in a Canopy workspace — agents, skills, teams, projects, tasks — exposes
-itself in three tiers. The agent requests only what it needs, when it needs it.
-
-```
-Tier 0 (Catalog)    Name + one-line description only. ~100 tokens per entity.
-                    Used when scanning "what's available?" — no full loads.
-
-Tier 1 (Activation) Full manifest body loaded on demand. ~2K tokens per entity.
-                    Used when the agent selects a specific agent, skill, or task
-                    to work with.
-
-Tier 2 (Full)       All referenced assets loaded: scripts, linked reference docs,
-                    external skill bodies, evidence schemas, sub-tasks.
-                    Used only for deep execution.
-```
-
-The catalog is always cheap. The full manifest costs only when it's actually used.
-Activation happens on explicit selection, not bulk prefetch. This is how Canopy
-achieves 96% context reduction vs systems that load everything upfront.
-
-### Tiered Context Loading
-
-The folder structure IS the context architecture. Layer 0 is what the agent reads
-first. Each layer deeper costs more tokens and loads only when needed.
-
-```
-L0: SYSTEM.md + company.yaml        Always loaded (~2K tokens)
-L1: agents/ + skills/                On-demand (~2K tokens per item)
-L2: reference/ + workflows/ + spec/  Deep context (full content, via search)
-L3: engine/                          Invisible (0 tokens, powers skills)
-```
-
-Progressive Disclosure governs how L1 and L2 load: the agent always sees the catalog
-first, activates what it needs, and goes full only when execution demands it. No other
-system does this. Traditional agent frameworks dump everything into the prompt.
-File-based systems use ripgrep on flat directories. Canopy loads context in tiers —
-abstracts first, full content only when needed. 96% cost reduction vs traditional RAG.
-
-### Heartbeat Protocol
-
-Agents wake on schedule, check for work, execute, and delegate — autonomously.
-
-```
-Agent wakes (schedule, task assignment, or mention)
-  → Retrieves identity and role
-  → Checks pending approvals
-  → Fetches assigned tasks (sorted by priority)
-  → Atomic checkout (prevents double-work)
-  → Executes task
-  → Comments on progress (always, before exiting)
-  → Delegates subtasks to reports
-  → Sleeps until next heartbeat
-```
-
-See [`architecture/heartbeat.md`](architecture/heartbeat.md) for the full 9-step protocol.
-
-### Multi-Runtime Adapter Registry
-
-One orchestrator dispatches work to different runtimes based on task type:
-
-```
-/delegate "Write the API spec"    → Claude Code (deep reasoning)
-/delegate "Refactor 50 files"     → Codex (bulk code changes)
-/delegate "Analyze screenshots"   → Gemini (multimodal)
-/delegate "Run test suite"        → Shell process
-/delegate "Check production"      → HTTP webhook
-```
-
-Each runtime is a pluggable adapter behind a standard interface. New runtime?
-Write one adapter. Register it. Done.
-
-See [`architecture/adapters.md`](architecture/adapters.md).
-
-### Budget Enforcement
-
-Three tiers — visibility, soft alert, hard ceiling:
-
-| Threshold | What Happens |
-|-----------|-------------|
-| **Always** | Dashboard shows spend per agent, task, project, goal |
-| **80%** | Soft alert — agent warned to focus on critical tasks only |
-| **100%** | Hard stop — auto-pause, approval required to resume |
-
-Tracks tokens and dollars. Rollup at any level. Enforced at every execution
-boundary — scheduler, manual invoke, task checkout.
-
-See [`architecture/budgets.md`](architecture/budgets.md).
-
-### Agent Commerce (Machine Payments Protocol)
-
-Agents don't just do work — they **buy things**. Stripe's Machine Payments Protocol
-(MPP) lets agents transact autonomously: pay for APIs, buy compute, purchase services
-from other agent workspaces.
-
-```
-Agent needs browser sessions for scraping
-  → Hits Browserbase API
-  → Gets payment request back (MPP)
-  → Checks budget (Canopy governance)
-  → Authorizes payment (within threshold)
-  → Receives resource
-  → Spend logged to workspace budget
-```
-
-Canopy's budget enforcement + governance gates wrap around MPP:
-- **Under threshold** — agent pays autonomously, logged to budget
-- **Over threshold** — payment queued for human approval
-- **Over budget** — hard stop, no payment authorized
-
-This is how autonomous companies actually work. Agents buying from agents.
-Your sales workspace pays for lead data. Your dev workspace pays for compute.
-Your content workspace pays for stock images. All within governed budgets.
-
-### Governance & Approval Gates
-
-You operate as the board of directors:
-
-- Agents can't hire new agents without your approval
-- Strategy proposals require board review before execution
-- Budget overrides require explicit authorization
-- Every action logged in an immutable audit trail
-- Approval states: pending → approved / rejected / revision requested
-
-See [`architecture/governance.md`](architecture/governance.md).
-
-### Task Coordination
-
-Tasks ARE the communication protocol. No agent-to-agent messaging:
-
-- **Delegation** = create child task assigned to a report
-- **Status** = modify task fields
-- **Escalation** = traverse parent chain up to orchestrator
-- **Atomic checkout** = only one agent works on a task at a time (409 = move on)
-
-Hierarchy: Initiatives → Projects → Milestones → Issues → Sub-issues.
-Every task traces back to a company goal.
-
-See [`architecture/tasks.md`](architecture/tasks.md).
-
-### Session Persistence & Compaction
-
-Agents resume context across heartbeats instead of starting fresh:
-
-- Task-scoped sessions persist across invocations
-- When context fills, generate handoff summary + start fresh
-- Compaction policy: max runs, max tokens, max age
-- Agent never loses progress — just compacts and continues
-
-See [`architecture/sessions.md`](architecture/sessions.md).
-
-### 6R Knowledge Pipeline
-
-For knowledge workspaces (second brains, cognitive OS):
-
-```
-Record (capture) → Reduce (extract insights)
-  → Reflect (discover connections) → Reweave (update older content)
-    → Verify (quality gate) → Rethink (evolve the system)
-```
-
-Each phase can spawn a fresh subagent for clean context. Per-note task files
-serve as inter-phase communication. Three depths: Deep, Standard, Quick.
-
-See [`architecture/processing-pipeline.md`](architecture/processing-pipeline.md).
-
-### Manifest System (Teams, Projects, Tasks)
-
-Three first-class manifest types give operations a structured org layer on top of agents
-and skills:
-
-**`TEAM.md`** — Define an org subtree. Teams group agents, own a shared budget slice,
-and declare their coordination protocol. A team is not just a list of names — it's a
-governed unit with its own spending authority and escalation rules.
-
-```
-teams/outbound/TEAM.md
-  members: [prospector, closer, researcher]
-  budget: $800/mo (allocated from workspace envelope)
-  coordination: tasks/ + inbox messaging
-  escalation: → director
-```
-
-**`PROJECT.md`** — Define planned work with milestones, budget allocation, and resource
-assignments. Projects map to the Initiatives → Milestones → Issues task hierarchy and
-carry explicit evidence gates — the project isn't "done" until the gates pass.
-
-```
-projects/q2-pipeline/PROJECT.md
-  goal: 40 qualified opportunities by June 30
-  milestones: [prospecting-complete, demos-scheduled, close-ready]
-  budget: $2,000 (draws from team:outbound allocation)
-  evidence: pipeline.json opportunity count ≥ 40
-```
-
-**`TASK.md`** — Portable, reusable task definitions. A TASK.md is not a one-time work
-item — it's a template that can be scheduled, assigned to different agents, and executed
-repeatedly. Carries its own schedule, evidence gates, and default assignee. An agent
-picks it up, completes the evidence gate, and the task auto-closes.
-
-```
-tasks/qualify-lead/TASK.md
-  trigger: new lead added to pipeline.json
-  assignee: closer (default), fallback: prospector
-  evidence: MEDDPICC score ≥ 6 written to task comment
-  schedule: on-demand
-```
-
-Manifests compose. A project references tasks. A team owns projects. The workspace
-orchestrates teams. The whole structure is just folders and markdown — but underneath it's
-a governed org chart with budgets, assignments, and evidence-gated completion.
-
-### Multi-Agent Team Coordination
-
-Spawn teams of agents that coordinate via filesystem:
-
-- **Inbox messaging** — file-based, atomic writes, consume or peek
-- **Git worktree isolation** — each agent gets its own branch, no conflicts
-- **Task dependencies** — auto-unblock when upstream completes
-- **Team templates** — YAML/TOML archetypes for repeatable setups
-- **Liveness detection** — dead agents auto-release locks
-
-See [`architecture/team-coordination.md`](architecture/team-coordination.md).
-
-### Skills as First-Class Agent Capabilities
-
-Skills are no longer just slash commands in a folder — they're declared capabilities
-that agents carry. An agent's frontmatter lists which skills it activates, and the
-agent body specifies exactly when each one fires:
-
-```yaml
-# agents/closer.md (frontmatter)
-skills:
-  - qualify
-  - close-plan
-  - battlecard
-```
-
-```
-# agents/closer.md (body — Skills section)
-## Skills
-
-| Skill | Activates When |
-|-------|---------------|
-| /qualify | New opportunity enters pipeline; score not yet recorded |
-| /close-plan | Opportunity reaches Proposal stage |
-| /battlecard | Competitor mentioned in call notes or deal context |
-```
-
-The agent knows what it can do and when to reach for it — without being told in every
-prompt. Skills activate on context, not on explicit invocation. A closer that
-recognizes a competitor mention and runs `/battlecard` unprompted is a closer that
-actually knows its job.
-
-### External Skill References
-
-Skills don't have to live inside the workspace. Operations can reference skills from
-external libraries — keeping workspaces lean and skills versioned and shared:
-
-```yaml
-# skills/qualify/SKILL.md (frontmatter)
-source: library://canopy/skills/qualify@v2.1.0
-pin: sha256:a3f9...
-license: MIT
-```
-
-The workspace resolves the reference at activation time (Tier 1 load). Provenance is
-tracked: source URL, pinned version, license. If the external skill changes, the pin
-locks the workspace to the version it was tested against. You update deliberately, not
-accidentally.
-
-This means the same `/qualify` skill can be shared across ten workspaces without
-copying it ten times. Fix a bug in the library — publish a new version — each workspace
-opts in on its own schedule.
-
-### Pluggable Engine Backends
-
-The L3 engine layer is fully pluggable — swap backends without changing skills or agents:
-
-| Function | Options |
-|----------|---------|
-| **Text Search** | SQLite FTS5, Tantivy, Typesense, Elasticsearch, Meilisearch |
-| **Semantic Search** | sqlite-vec, Qdrant, ChromaDB, Pinecone, pgvector, LanceDB |
-| **Embeddings** | Ollama (local), OpenAI, Cohere, Voyage AI, local ONNX |
-| **Knowledge Graph** | SQLite edges, Neo4j, NetworkX, Apache AGE, filesystem |
-| **Memory** | SQLite, Mem0, Zep, Redis, PostgreSQL |
-| **Classification** | LLM-based, rule-based, hybrid, fine-tuned local |
-| **LLM Provider** | Ollama, OpenAI, Anthropic, Google, Groq, local GGUF |
-
-Start with SQLite + Ollama (zero dependencies). Scale to Qdrant + Neo4j + OpenAI
-when you need production throughput. The workspace doesn't change — only the engine config.
-
-See [`architecture/engine-layer.md`](architecture/engine-layer.md) for comparison tables,
-reference configurations, and the OptimalOS reference implementation.
-
-### Cross-Workspace Signals
-
-Workspaces communicate through signals with universal encoding:
-**S = (Mode, Genre, Type, Format, Structure)**
-
-```
-Sales agent closes a deal
-  → Signal routes to Content Factory (case study material)
-  → Signal routes to Cognitive OS (revenue tracking)
-  → Each workspace decodes using its own context
-```
-
-Same signal, different receiver, different genre. A salesperson gets a brief.
-A developer gets a spec. A CEO gets a decision log.
-
-See [`architecture/cross-workspace-signals.md`](architecture/cross-workspace-signals.md).
-
----
-
-## Company Orchestration
-
-Run an entire AI company from a workspace:
-
-```
-ai-company/
-├── SYSTEM.md                     "You orchestrate an AI-native company."
-├── company.yaml                  Mission, $50K/mo budget, org chart, governance
-├── agents/
-│   ├── orchestrator.md           Assigns work, tracks progress, manages budgets
-│   ├── cfo.md                    Budget tracking, spend alerts, ROI analysis
-│   ├── strategist.md             OKR tracking, quarterly reviews, pivot decisions
-│   └── analyst.md                Cross-workspace analytics, trend detection
-├── skills/
-│   ├── delegate/SKILL.md         /delegate — assign work to a workspace
-│   ├── budget/SKILL.md           /budget — view spend, set limits, approve
-│   ├── hire/SKILL.md             /hire — add agent from library
-│   ├── status/SKILL.md           /status — cross-workspace dashboard
-│   └── plan/SKILL.md             /plan — create initiative with milestones
-├── workspaces/                   Pointers to child workspaces
-│   ├── sales-engine.yaml         Path, budget allocation, team, goals
-│   ├── dev-shop.yaml
-│   ├── content-factory.yaml
-│   └── support-ops.yaml
-└── engine/                       Goal tracking, budget ledger, signal bus
-```
-
-The orchestrator doesn't do domain work. It coordinates the workspaces that do.
-
----
-
-## Agent Config + Workspace = Specialized System
-
-Every agent runtime has a base configuration. When it enters a Canopy workspace,
-the workspace layers on top — doesn't replace, extends:
-
-```
-Base config (always active):              Workspace (added on entry):
-  ~/.claude/                               sales-engine/
-  ├── agents/ (debugger, reviewer)         ├── agents/ (closer, prospector)
-  ├── commands/ (/commit, /test)           ├── skills/ (/qualify, /pipeline)
-  ├── rules/ (coding standards)            ├── reference/ (ICP, MEDDPICC)
-  └── hooks/ (automation)                  └── engine/ (CRM integration)
-
-= A fully equipped sales agent that can also debug code
-```
-
-When the agent leaves and enters a different workspace, it drops the sales
-context and picks up whatever the new workspace provides. Base config persists.
-
-| Runtime | Base Config | How Workspace Layers On |
-|---|---|---|
-| **Claude Code** | `~/.claude/` | Reads SYSTEM.md as project CLAUDE.md |
-| **OSA** | `~/.osa/` | `osa connect .` auto-discovers everything |
-| **Cursor** | `.cursor/` | SYSTEM.md → `.cursorrules`, agents → project rules |
-| **Windsurf** | `.windsurfrules` | SYSTEM.md → `.windsurfrules` |
-| **Aider** | `CONVENTIONS.md` | SYSTEM.md → `CONVENTIONS.md` |
-| **Any agent** | Whatever it has | Read SYSTEM.md, run skills via shell |
-
----
-
-## What's in This Repo
-
-### [`protocol/`](protocol/) — The Standard
-
-| Spec | What It Defines |
-|------|----------------|
-| `workspace-protocol.md` | SYSTEM.md + agents/ + skills/ + reference/ standard |
-| `signal-theory.md` | S=(M,G,T,F,W) universal signal encoding |
-| `agent-format.md` | YAML frontmatter + body sections for agent definitions |
-| `skill-format.md` | SKILL.md schema: trigger, steps, evidence, external refs, agent declarations |
-| `team-format.md` | TEAM.md schema: members, budget slice, coordination rules, escalation |
-| `project-format.md` | PROJECT.md schema: milestones, budget envelope, evidence gates, resource allocation |
-| `task-format.md` | TASK.md schema: schedule, assignee, evidence gates, portability contract |
-| `company-format.md` | company.yaml schema (org chart, budgets, governance) |
-| `spec-layer.md` | PROCEDURES.md, WORKFLOW.md, MODULES.md formats |
-| `progressive-disclosure.md` | Three-tier catalog/activation/full loading model |
-| `external-refs.md` | External skill reference format: source, pin, license, resolution |
-| `verification.md` | Spec contracts and drift detection |
-
-### [`library/`](library/) — 168 Agents, 114 Skills
-
-**`library/agents/`** — 168 agents across 14 categories:
-academic, design, engineering, game-development, marketing, paid-media,
-product, project-management, sales, spatial-computing, specialized,
-support, testing
-
-**`library/skills/`** — 114 skills across 17 categories:
-development, content, search, knowledge, operations, strategy, agent,
-workflow, learning, security, ai-patterns, processing, coordination,
-governance, analysis, workspace
-
-### [`operations/`](operations/) — Ready-to-Run Workspaces
-
-| Workspace | What It Is | Agents | Skills |
-|-----------|-----------|--------|--------|
-| `sales-engine/` | B2B sales pipeline | 5 | 5 |
-| `dev-shop/` | Software development team | 6 | 6 |
-| `content-factory/` | Multi-platform content | 5 | 5 |
-| `cognitive-os/` | Personal knowledge OS | 4 | 14 |
-| `agency-workflows/` | Workflow examples | -- | -- |
-
-### [`templates/`](templates/) — Starter Kits
-
-| Template | Files | Use Case |
-|----------|-------|----------|
-| `micro/` | ~5 | Single-purpose agent (email responder, code reviewer) |
-| `small/` | ~15 | Small team (2 agents, 3 skills, company.yaml) |
-| `full/` | ~30 | Full operation (4 agents, 8 skills, workflows, spec/) |
-| `enterprise/` | ~50 | Enterprise (governance, budgets, compliance, audit) |
-
-### [`architecture/`](architecture/) — 20 Spec Documents
-
-Heartbeat protocol, adapter registry, session persistence, budget enforcement,
-task hierarchy, governance, marketplace format, tiered loading, memory architecture,
-signal integration, cross-workspace signals, proactive agents, processing pipeline,
-three-space model, team coordination, workspaces, unified system model, engine layer,
-engine reference implementation, and more.
-
-### [`strategy/`](strategy/) — 7-Phase Orchestration
-
-Discovery → Strategy → Foundation → Build → Hardening → Launch → Operate.
-Playbooks, runbooks, handoff templates, agent activation prompts.
-
-### [`guides/`](guides/) — Learn the System
-
-Getting started, agent design, skill design, workflow design, data architecture,
-proactive agents, company setup, signal theory quickstart.
-
-### [`integrations/`](integrations/) — 11 Runtime Connectors
-
-Claude Code, OSA, Cursor, Copilot, Gemini CLI, Aider, Windsurf, OpenCode,
-OpenClaw, Antigravity. Plus install/convert scripts for all.
-
----
-
-## ROM vs RAM: Teaching Agents, Not Prompting Them
-
-Most people prompt agents. Canopy **teaches** them.
-
-The difference is ROM vs RAM:
-
-| | RAM (Prompting) | ROM (Canopy) |
-|---|---|---|
-| **Where** | Context window | Workspace files |
-| **Lifespan** | Dies when conversation ends | Persists forever |
-| **Grows** | No — same prompt every time | Yes — agent gets smarter over time |
-| **Transferable** | No — stuck in one chat | Yes — any agent reads the same files |
-| **Auditable** | No — buried in conversation | Yes — version controlled, diffable |
-
-**RAM** is the conversation context. It's temporary. When the window fills up, it's gone.
-You're renting the agent's attention.
-
-**ROM** is the workspace. Skills, agents, reference docs, workflows, playbooks, decision
-trees. It's permanent. The agent loads it on boot, uses it during execution, and the
-knowledge survives across sessions, across runtimes, across teams.
-
-When you write a skill like `/qualify` with MEDDPICC scoring criteria — that's ROM.
-Every agent that enters the workspace inherits it. You taught it once.
-
-### What This Means in Practice
-
-**Computer Use Workflows** — Need an agent to navigate a browser, fill forms, extract
-data from a dashboard? Write a workflow skill. The agent reads the steps, executes them,
-and the workflow persists as ROM. Next time, any agent can run it without being re-taught.
-
-```
-skills/
-├── scrape-leads/SKILL.md        Agent navigates LinkedIn, extracts ICP matches
-├── fill-crm/SKILL.md            Agent opens HubSpot, creates deal records
-├── screenshot-audit/SKILL.md    Agent captures competitor pages, runs analysis
-```
-
-**RPA (Robotic Process Automation)** — Traditional RPA tools are brittle scripts.
-Canopy workflows are natural language instructions that agents interpret with context.
-When the UI changes, the agent adapts. When the process evolves, you edit a markdown file.
-
-**Dynamic Workflows** — Workflows that branch based on context. A `/triage` skill might
-route to `/escalate`, `/resolve`, or `/delegate` depending on what it finds. Skills call
-other skills. Agents spawn other agents. The workspace is a living system, not a static
-playbook.
-
-**Teaching Through Friction** — The learning loop (`/remember` → `/rethink`) captures
-what goes wrong. Agent makes a mistake? `mix optimal.remember "always validate email
-before sending"`. After enough observations accumulate, `/rethink` synthesizes them
-into updated skills or reference docs. The workspace evolves.
-
-### The Knowledge Compound Effect
-
-Every skill you write, every workflow you define, every reference doc you add — it
-compounds. Day 1, your workspace has 10 skills. Day 30, it has 50. Day 90, the agent
-operating inside it is functionally an expert in your domain.
-
-This is why Canopy isn't a chatbot wrapper. It's an **operating system for agent
-intelligence**. The workspace IS the intelligence. The agent is just the runtime.
-
----
-
-## Why Canopy Beats Everything Else
-
-### Others Have Tried This
-
-A few projects have taken a run at agent orchestration — Paperclip (server-based
-zero-human companies), ClawTeam (CLI swarm intelligence), Ars Contexta (knowledge
-management via Claude Code), agency-agents (150+ agent library), EverMemOS (memory
-OS for agents with foresight extraction and hybrid retrieval). They all got
-pieces right. None got the whole thing.
-
-| | Typical Agent Frameworks | Canopy |
-|---|---|---|
-| **Requires** | Server + DB + UI | A folder |
-| **Templates** | Usually "coming soon" | 168 agents, 114 skills, 5 operations |
-| **Context mgmt** | Flat prompt injection | L0-L3 tiered loading + progressive disclosure |
-| **Org structure** | None | Teams, projects, tasks — governed manifests |
-| **Skill ownership** | Prompt-level | Declared in agent frontmatter, activated by context |
-| **Skill reuse** | Copy-paste | External refs with provenance (source + pin + license) |
-| **Classification** | None | Signal Theory auto-routing |
-| **Knowledge** | None | 6R pipeline, knowledge graph, learning loop |
-| **Runtimes** | 1-6 | 10+ |
-| **Use cases** | One paradigm | Companies, second brains, dev, content, automation, RPA |
-| **Portability** | Vendor-locked | Any agent, any machine, any VM |
-
-### The Synthesis
-
-No single system had all the pieces. Canopy synthesized the best ideas from across
-the ecosystem:
-
-```
-Heartbeat Protocol   — Scheduled autonomous agent execution with atomic task checkout
-Adapter Registry     — Pluggable runtime connectors behind a standard interface
-Budget Enforcement   — 3-tier cost control (visibility → soft alert → hard ceiling)
-6R Pipeline          — Record → Reduce → Reflect → Reweave → Verify → Rethink
-Three-Space Model    — Self (identity) + Knowledge (graph) + Ops (ephemeral)
-Tiered Loading       — L0/L1/L2/L3 context hierarchy, 96% cost reduction
-Progressive Disclosure — Tier 0/1/2 catalog→activation→full loading within each layer
-Signal Theory        — S=(M,G,T,F,W) classification + auto-routing + quality gates
-Manifest System      — TEAM.md, PROJECT.md, TASK.md: governed org layer over agents
-Skill Declarations   — Agents declare skills in frontmatter; activation rules in body
-External Skill Refs  — Reference library skills by URL + pin; no vendoring required
-Simulation Engine    — Monte Carlo scenario planning + impact analysis
-Foresight Memory     — Extract forward-looking predictions with time bounds
-Agentic Retrieval    — Multi-round search with LLM sufficiency judgment
-Agent Library        — 168 agents, 114 skills, 5 ready-to-run operations
-Team Templates       — Filesystem-as-DB, inbox messaging, worktree isolation
-```
-
-**Protocol-based orchestration.** Works with any agent runtime. Requires zero
-infrastructure. Deeper context management, knowledge processing, and quality
-control than any server-based alternative.
-
----
-
-## Quick Start
-
-```bash
-# Clone
-git clone https://github.com/Miosa-osa/canopy.git
-cd canopy
-
-# Run a workspace
-cd operations/sales-engine
-# Your agent reads SYSTEM.md and starts working
-
-# Build your own
-cp -r templates/small/ my-workspace/
-# Edit SYSTEM.md, add agents/, skills/, reference/
-
-# Run a company
-cp -r templates/enterprise/ my-company/
-# Configure company.yaml, add workspace pointers
-# Install: ../scripts/install.sh --tool claude-code
-```
-
----
-
-## The Big Picture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  L0 — ENTRY POINT (always loaded, ~2K tokens)               │
-│  SYSTEM.md + company.yaml                                    │
-└────────────────────────┬────────────────────────────────────┘
-                         │ discovers
-┌────────────────────────┴────────────────────────────────────┐
-│  L1 — CAPABILITIES (on-demand, ~2K tokens each)              │
-│  agents/ + skills/                                           │
-└────────────────────────┬────────────────────────────────────┘
-                         │ references
-┌────────────────────────┴────────────────────────────────────┐
-│  L2 — DEEP CONTEXT (loaded for specific tasks)               │
-│  reference/ + workflows/ + handoffs/ + spec/                 │
-└────────────────────────┬────────────────────────────────────┘
-                         │ powered by
-┌────────────────────────┴────────────────────────────────────┐
-│  L3 — ENGINE (invisible, 0 tokens in context)                │
-│  Search, vectors, knowledge graph, memory, classification    │
-│  Pluggable backends: SQLite/Qdrant/Neo4j/Ollama/OpenAI/...   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  CANOPY ORCHESTRATION                                        │
-│  company.yaml — run workspaces toward shared goals           │
-│  Heartbeats, budgets, governance, approval gates             │
-└────────┬─────────┬─────────┬─────────┬──────────────────────┘
-         │         │         │         │
-    ┌────┴───┐ ┌───┴────┐ ┌─┴──────┐ ┌┴──────────┐
-    │ Sales  │ │  Dev   │ │Content │ │ Cognitive │
-    │ Engine │ │  Shop  │ │Factory │ │ OS        │
-    │ 5 agt  │ │ 6 agt  │ │ 5 agt  │ │ 4 agt     │
-    │ 5 skl  │ │ 6 skl  │ │ 5 skl  │ │ 14 skl    │
-    │ CRM    │ │ CI/CD  │ │Publish │ │ 39-module │
-    │ engine │ │ engine │ │engine  │ │ engine    │
-    └────────┘ └────────┘ └────────┘ └───────────┘
-     WORKSPACE  WORKSPACE  WORKSPACE   WORKSPACE
-```
-
-Each workspace is a complete AI system in a folder.
-Same protocol. Different domain. Different depth.
-
-**The workspace is the product.** The agent is just the runtime.
-
----
-
-## Canopy + MIOSA
-
-Canopy is the **protocol**. [MIOSA](https://github.com/Miosa-osa) is the **platform**.
-
-You can run Canopy anywhere — your laptop, a server, a Raspberry Pi. It's just folders.
-But when you want managed infrastructure, MIOSA gives you:
-
-- **Virtual machines on demand** — Each workspace gets its own Firecracker microVM.
-  Isolated, secure, disposable. Spin up a sales engine in seconds, tear it down when done.
-- **Agent marketplace** — Browse, download, and install workspaces. Like an app store
-  for AI agent systems. Community-built, version-controlled, one-click deploy.
-- **Autonomous operation** — Agents running on heartbeats 24/7 inside managed VMs.
-  You set the budget, governance rules, and goals. MIOSA handles uptime, monitoring,
-  and cost tracking.
-- **Team & multi-tenant** — Multiple people, multiple workspaces, shared governance.
-  Your agency runs 50 client workspaces. Each client gets their own isolated VM with
-  their own Canopy workspace, their own budget, their own agents.
-- **Application integrations** — CRM, email, Slack, calendars, payment processors,
-  databases. Canopy skills talk to external systems. MIOSA provides the connectors
-  and manages the credentials.
-
-### How It Works
-
-```
-Your laptop (local development):
-  canopy/sales-engine/     ← Edit skills, test workflows, iterate fast
-
-MIOSA platform (production):
-  VM 1: sales-engine/      ← 5 agents, heartbeat every 15min, $500/mo budget
-  VM 2: dev-shop/          ← 6 agents, CI/CD integration, auto-deploy
-  VM 3: content-factory/   ← 5 agents, publishing pipeline, social scheduling
-  VM 4: client-workspace/  ← Isolated tenant, custom agents, client-specific ROM
-```
-
-Build locally. Deploy to MIOSA. Or don't — Canopy works fine without it.
-
-**Canopy is free forever.** MIOSA is where the business model lives — managed
-infrastructure, marketplace revenue share, enterprise features. The protocol stays
-open. The platform adds value on top.
+Code style is enforced by `make lint` and `make format`. PRs that don't pass CI will not be merged.
 
 ---
 
 ## License
 
-MIT License. Open source. Use it, fork it, build on it.
+MIT — see [LICENSE](LICENSE).
