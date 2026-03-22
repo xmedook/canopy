@@ -122,6 +122,13 @@ defmodule CanopyWeb.OrganizationController do
       logo_url: o.logo_url,
       plan: o.plan,
       settings: o.settings,
+      mission: o.mission,
+      description: o.description,
+      issue_prefix: o.issue_prefix,
+      budget_monthly_cents: o.budget_monthly_cents,
+      budget_per_agent_cents: o.budget_per_agent_cents,
+      budget_enforcement: o.budget_enforcement,
+      governance: o.governance,
       created_at: o.inserted_at,
       inserted_at: o.inserted_at,
       updated_at: o.updated_at

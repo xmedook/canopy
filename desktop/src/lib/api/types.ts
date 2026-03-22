@@ -201,6 +201,7 @@ export interface CanopyAgent {
   system_prompt: string;
   config: Record<string, unknown>;
   skills: string[];
+  team_id: string | null;
   schedule_id: string | null;
   budget_policy_id: string | null;
   current_task: string | null;
@@ -982,6 +983,11 @@ export interface Organization {
   plan: "free" | "pro" | "enterprise";
   member_count: number;
   agent_count: number;
+  budget_monthly_cents: number | null;
+  budget_per_agent_cents: number | null;
+  budget_enforcement: "soft" | "hard" | null;
+  governance: string | null;
+  mission: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1011,6 +1017,93 @@ export interface OrganizationCreateRequest {
   name: string;
   slug?: string;
   description?: string;
+}
+
+// ── Divisions ─────────────────────────────────────────────────────────────────
+
+export interface Division {
+  id: string;
+  organization_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  head_agent_id: string | null;
+  budget_monthly_cents: number | null;
+  budget_enforcement: "soft" | "hard" | null;
+  signal: string | null;
+  mission: string | null;
+  operating_model: string | null;
+  coordination: string | null;
+  escalation_rules: string | null;
+  inserted_at: string;
+  updated_at: string;
+}
+
+// ── Departments ───────────────────────────────────────────────────────────────
+
+export interface Department {
+  id: string;
+  division_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  head_agent_id: string | null;
+  budget_monthly_cents: number | null;
+  budget_enforcement: "soft" | "hard" | null;
+  signal: string | null;
+  mission: string | null;
+  teams_overview: string | null;
+  coordination: string | null;
+  escalation_rules: string | null;
+  inserted_at: string;
+  updated_at: string;
+}
+
+// ── Teams ─────────────────────────────────────────────────────────────────────
+
+export interface Team {
+  id: string;
+  department_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  manager_agent_id: string | null;
+  budget_monthly_cents: number | null;
+  budget_enforcement: "soft" | "hard" | null;
+  signal: string | null;
+  mission: string | null;
+  coordination: string | null;
+  escalation_rules: string | null;
+  handoff_protocols: string | null;
+  inserted_at: string;
+  updated_at: string;
+}
+
+export interface TeamMembership {
+  id: string;
+  team_id: string;
+  agent_id: string;
+  role: "member" | "manager";
+  inserted_at: string;
+}
+
+// ── Hierarchy Tree ────────────────────────────────────────────────────────────
+
+export interface HierarchyTeamNode extends Team {
+  agents: CanopyAgent[];
+}
+
+export interface HierarchyDepartmentNode extends Department {
+  teams: HierarchyTeamNode[];
+}
+
+export interface HierarchyDivisionNode extends Division {
+  departments: HierarchyDepartmentNode[];
+}
+
+export interface HierarchyTree {
+  organization: Organization;
+  divisions: HierarchyDivisionNode[];
 }
 
 // ── Labels ────────────────────────────────────────────────────────────────────

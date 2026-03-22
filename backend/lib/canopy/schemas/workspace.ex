@@ -11,6 +11,7 @@ defmodule Canopy.Schemas.Workspace do
     field :status, :string, default: "active"
 
     belongs_to :owner, Canopy.Schemas.User
+    belongs_to :organization, Canopy.Schemas.Organization
     has_many :agents, Canopy.Schemas.Agent
     has_many :projects, Canopy.Schemas.Project
     has_many :issues, Canopy.Schemas.Issue
@@ -21,7 +22,7 @@ defmodule Canopy.Schemas.Workspace do
 
   def changeset(workspace, attrs) do
     workspace
-    |> cast(attrs, [:name, :path, :status, :owner_id])
+    |> cast(attrs, [:name, :path, :status, :owner_id, :organization_id])
     |> validate_required([:name, :path])
     |> validate_inclusion(:status, ~w(active archived))
   end

@@ -47,6 +47,11 @@ import type {
   Organization,
   OrganizationMembership,
   OrganizationCreateRequest,
+  Division,
+  Department,
+  Team,
+  TeamMembership,
+  HierarchyTree,
   Label,
   LabelCreateRequest,
   Plugin,
@@ -1214,6 +1219,112 @@ export const organizations = {
     );
     return data.members ?? [];
   },
+};
+
+// ── Divisions ─────────────────────────────────────────────────────────────────
+
+export const divisions = {
+  list: async (orgId?: string): Promise<Division[]> => {
+    const qs = orgId ? `?organization_id=${orgId}` : "";
+    const data = await request<{ divisions: Division[] }>(`/divisions${qs}`);
+    return data.divisions ?? [];
+  },
+  get: (id: string) => request<Division>(`/divisions/${id}`),
+  create: (body: Partial<Division>) =>
+    request<Division>("/divisions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  update: (id: string, body: Partial<Division>) =>
+    request<Division>(`/divisions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  delete: (id: string) =>
+    request<void>(`/divisions/${id}`, { method: "DELETE" }),
+  departments: async (divisionId: string): Promise<Department[]> => {
+    const data = await request<{ departments: Department[] }>(
+      `/divisions/${divisionId}/departments`,
+    );
+    return data.departments ?? [];
+  },
+};
+
+// ── Departments ───────────────────────────────────────────────────────────────
+
+export const departments = {
+  list: async (divisionId?: string): Promise<Department[]> => {
+    const qs = divisionId ? `?division_id=${divisionId}` : "";
+    const data = await request<{ departments: Department[] }>(
+      `/departments${qs}`,
+    );
+    return data.departments ?? [];
+  },
+  get: (id: string) => request<Department>(`/departments/${id}`),
+  create: (body: Partial<Department>) =>
+    request<Department>("/departments", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  update: (id: string, body: Partial<Department>) =>
+    request<Department>(`/departments/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  delete: (id: string) =>
+    request<void>(`/departments/${id}`, { method: "DELETE" }),
+  teams: async (departmentId: string): Promise<Team[]> => {
+    const data = await request<{ teams: Team[] }>(
+      `/departments/${departmentId}/teams`,
+    );
+    return data.teams ?? [];
+  },
+};
+
+// ── Teams ─────────────────────────────────────────────────────────────────────
+
+export const teams = {
+  list: async (departmentId?: string): Promise<Team[]> => {
+    const qs = departmentId ? `?department_id=${departmentId}` : "";
+    const data = await request<{ teams: Team[] }>(`/teams${qs}`);
+    return data.teams ?? [];
+  },
+  get: (id: string) => request<Team>(`/teams/${id}`),
+  create: (body: Partial<Team>) =>
+    request<Team>("/teams", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  update: (id: string, body: Partial<Team>) =>
+    request<Team>(`/teams/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  delete: (id: string) => request<void>(`/teams/${id}`, { method: "DELETE" }),
+  agents: async (teamId: string): Promise<CanopyAgent[]> => {
+    const data = await request<{ agents: CanopyAgent[] }>(
+      `/teams/${teamId}/agents`,
+    );
+    return data.agents ?? [];
+  },
+  addMember: (
+    teamId: string,
+    agentId: string,
+    role: "member" | "manager" = "member",
+  ) =>
+    request<TeamMembership>(`/teams/${teamId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ agent_id: agentId, role }),
+    }),
+  removeMember: (teamId: string, agentId: string) =>
+    request<void>(`/teams/${teamId}/members/${agentId}`, { method: "DELETE" }),
+};
+
+// ── Hierarchy ─────────────────────────────────────────────────────────────────
+
+export const hierarchy = {
+  get: (organizationId: string) =>
+    request<HierarchyTree>(`/hierarchy?organization_id=${organizationId}`),
 };
 
 // ── Labels ────────────────────────────────────────────────────────────────────

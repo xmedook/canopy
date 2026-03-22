@@ -138,6 +138,7 @@ export function frontmatterToAgent(
     skills: Array.isArray(frontmatter["skills"])
       ? (frontmatter["skills"] as string[])
       : [],
+    team_id: null,
     schedule_id: null,
     budget_policy_id: null,
     current_task: null,

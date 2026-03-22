@@ -11,6 +11,8 @@ defmodule Canopy.Schemas.BudgetIncident do
     field :actual_pct, :integer
     field :resolved, :boolean, default: false
     field :resolved_at, :utc_datetime
+    field :scope_type, :string
+    field :scope_id, :binary_id
     field :inserted_at, :utc_datetime
 
     belongs_to :policy, Canopy.Schemas.BudgetPolicy
@@ -20,8 +22,8 @@ defmodule Canopy.Schemas.BudgetIncident do
 
   def changeset(incident, attrs) do
     incident
-    |> cast(attrs, [:incident_type, :threshold_pct, :actual_pct, :resolved, :resolved_at, :policy_id, :agent_id, :resolved_by])
-    |> validate_required([:incident_type, :threshold_pct, :actual_pct, :policy_id, :agent_id])
+    |> cast(attrs, [:incident_type, :threshold_pct, :actual_pct, :resolved, :resolved_at, :policy_id, :agent_id, :resolved_by, :scope_type, :scope_id])
+    |> validate_required([:incident_type, :threshold_pct, :actual_pct, :policy_id])
     |> validate_inclusion(:incident_type, ~w(warning hard_stop))
   end
 end

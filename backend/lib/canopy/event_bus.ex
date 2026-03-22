@@ -23,6 +23,10 @@ defmodule Canopy.EventBus do
   def workspace_topic(workspace_id), do: "workspace:#{workspace_id}"
   def agent_topic(agent_id), do: "agent:#{agent_id}"
   def session_topic(session_id), do: "session:#{session_id}"
+  def organization_topic(org_id), do: "organization:#{org_id}"
+  def division_topic(div_id), do: "division:#{div_id}"
+  def department_topic(dept_id), do: "department:#{dept_id}"
+  def team_topic(team_id), do: "team:#{team_id}"
   def activity_topic, do: "activity:global"
   def logs_topic, do: "logs:global"
 end

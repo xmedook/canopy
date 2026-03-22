@@ -419,6 +419,7 @@ defmodule CanopyWeb.AgentController do
       system_prompt: a.system_prompt,
       workspace_id: a.workspace_id,
       reports_to: a.reports_to,
+      team_id: a.team_id,
       schedule_id: nil,
       budget_policy_id: nil,
       current_task: nil,

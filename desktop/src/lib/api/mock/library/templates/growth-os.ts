@@ -35,6 +35,7 @@ function agent(
       signal: "",
     },
     skills,
+    team_id: null,
     schedule_id: null,
     budget_policy_id: null,
     current_task: null,

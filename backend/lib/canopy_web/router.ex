@@ -201,6 +201,26 @@ defmodule CanopyWeb.Router do
       get "/members", OrganizationController, :members, as: :members
     end
 
+    # Divisions
+    resources "/divisions", DivisionController, except: [:new, :edit] do
+      get "/departments", DivisionController, :departments, as: :departments
+    end
+
+    # Departments
+    resources "/departments", DepartmentController, except: [:new, :edit] do
+      get "/teams", DepartmentController, :teams, as: :teams
+    end
+
+    # Teams
+    resources "/teams", TeamController, except: [:new, :edit] do
+      get "/agents", TeamController, :agents, as: :agents
+      post "/members", TeamController, :add_member, as: :members
+      delete "/members/:agent_id", TeamController, :remove_member, as: :remove_member
+    end
+
+    # Hierarchy (full org tree)
+    get "/hierarchy", HierarchyController, :show
+
     # Invitations
     resources "/invitations", InvitationController, only: [:index, :create]
     post "/invitations/:token/accept", InvitationController, :accept
