@@ -41,6 +41,12 @@ defmodule CanopyWeb.LogController do
     level = params["level"]
     source = params["source"]
 
+    topic =
+      case params["workspace_id"] do
+        nil -> Canopy.EventBus.logs_topic()
+        workspace_id -> Canopy.EventBus.workspace_topic(workspace_id)
+      end
+
     conn =
       conn
       |> put_resp_content_type("text/event-stream")
@@ -48,7 +54,7 @@ defmodule CanopyWeb.LogController do
       |> put_resp_header("x-accel-buffering", "no")
       |> send_chunked(200)
 
-    Canopy.EventBus.subscribe(Canopy.EventBus.logs_topic())
+    Canopy.EventBus.subscribe(topic)
 
     stream_loop(conn, level, source)
   end
@@ -67,7 +73,7 @@ defmodule CanopyWeb.LogController do
           stream_loop(conn, level_filter, source_filter)
         end
 
-      event ->
+      %{} = event ->
         if passes_filter?(event, level_filter, source_filter) do
           data = Jason.encode!(event)
 
@@ -78,6 +84,10 @@ defmodule CanopyWeb.LogController do
         else
           stream_loop(conn, level_filter, source_filter)
         end
+
+      _non_map ->
+        # Ignore non-map messages (monitor refs, system messages, etc.)
+        stream_loop(conn, level_filter, source_filter)
     after
       30_000 ->
         case Plug.Conn.chunk(conn, ": keepalive\n\n") do

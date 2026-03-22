@@ -40,7 +40,13 @@ defmodule CanopyWeb.ActivityController do
     json(conn, %{events: Enum.map(results, fn {e, agent_name} -> serialize(e, agent_name) end), total: total})
   end
 
-  def stream(conn, _params) do
+  def stream(conn, params) do
+    topic =
+      case params["workspace_id"] do
+        nil -> Canopy.EventBus.activity_topic()
+        workspace_id -> Canopy.EventBus.workspace_topic(workspace_id)
+      end
+
     conn =
       conn
       |> put_resp_content_type("text/event-stream")
@@ -48,7 +54,7 @@ defmodule CanopyWeb.ActivityController do
       |> put_resp_header("x-accel-buffering", "no")
       |> send_chunked(200)
 
-    Canopy.EventBus.subscribe(Canopy.EventBus.activity_topic())
+    Canopy.EventBus.subscribe(topic)
 
     stream_loop(conn)
   end

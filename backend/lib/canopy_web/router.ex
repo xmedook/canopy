@@ -145,6 +145,10 @@ defmodule CanopyWeb.Router do
       post "/inject", SkillController, :inject, as: :inject
     end
 
+    # Agent–Skill assignment
+    post "/agents/:agent_id/skills/:skill_id", SkillController, :assign_to_agent
+    delete "/agents/:agent_id/skills/:skill_id", SkillController, :remove_from_agent
+
     # Webhooks
     resources "/webhooks", WebhookController, except: [:new, :edit] do
       post "/test", WebhookController, :test, as: :test

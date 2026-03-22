@@ -2,7 +2,7 @@ defmodule CanopyWeb.SkillController do
   use CanopyWeb, :controller
 
   alias Canopy.Repo
-  alias Canopy.Schemas.Skill
+  alias Canopy.Schemas.{Agent, Skill}
   import Ecto.Query
 
   def index(conn, params) do
@@ -121,6 +121,40 @@ defmodule CanopyWeb.SkillController do
         )
 
         json(conn, %{ok: true, skill_id: skill.id})
+    end
+  end
+
+  def assign_to_agent(conn, %{"agent_id" => agent_id, "skill_id" => skill_id}) do
+    with %Agent{} <- Repo.get(Agent, agent_id),
+         %Skill{} <- Repo.get(Skill, skill_id) do
+      result =
+        Repo.insert_all(
+          "agent_skills",
+          [%{agent_id: agent_id, skill_id: skill_id}],
+          on_conflict: :nothing
+        )
+
+      case result do
+        {_, _} -> json(conn, %{ok: true})
+      end
+    else
+      nil -> conn |> put_status(404) |> json(%{error: "not_found"})
+    end
+  end
+
+  def remove_from_agent(conn, %{"agent_id" => agent_id, "skill_id" => skill_id}) do
+    query =
+      from as in "agent_skills",
+        where:
+          as.agent_id == type(^agent_id, :binary_id) and
+            as.skill_id == type(^skill_id, :binary_id)
+
+    {count, _} = Repo.delete_all(query)
+
+    if count > 0 do
+      json(conn, %{ok: true})
+    else
+      conn |> put_status(404) |> json(%{error: "not_found"})
     end
   end
 
