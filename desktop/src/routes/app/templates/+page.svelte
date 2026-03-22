@@ -3,10 +3,36 @@
   import { onMount } from 'svelte';
   import PageShell from '$lib/components/layout/PageShell.svelte';
   import { templatesStore } from '$lib/stores/templates.svelte';
+  import { deployTemplate } from '$lib/services/template-deploy';
+  import { toastStore } from '$lib/stores/toasts.svelte';
+
+  let deploying = $state(false);
 
   onMount(() => {
     void templatesStore.fetchTemplates();
   });
+
+  async function handleDeploy() {
+    const template = templatesStore.selected;
+    if (!template || deploying) return;
+    deploying = true;
+    try {
+      const result = await deployTemplate(template.id, template.name);
+      if (result.success) {
+        toastStore.success(
+          'Template deployed',
+          `${template.name} — ${result.agentCount} agent${result.agentCount === 1 ? '' : 's'} registered.`,
+        );
+        templatesStore.selectTemplate(null);
+      } else {
+        toastStore.error('Deploy failed', result.error ?? 'Unknown error');
+      }
+    } catch (e) {
+      toastStore.error('Deploy failed', (e as Error).message);
+    } finally {
+      deploying = false;
+    }
+  }
 </script>
 
 <PageShell
@@ -22,6 +48,22 @@
       oninput={(e) => templatesStore.setSearch((e.target as HTMLInputElement).value)}
       aria-label="Search templates"
     />
+    {#if templatesStore.selected}
+      <button
+        class="tpl-deploy-btn"
+        class:tpl-deploy-btn--busy={deploying}
+        onclick={handleDeploy}
+        disabled={deploying}
+        aria-label="Deploy selected template {templatesStore.selected.name}"
+      >
+        {#if deploying}
+          <span class="tpl-deploy-spinner" aria-hidden="true"></span>
+          Deploying…
+        {:else}
+          Deploy "{templatesStore.selected.name}"
+        {/if}
+      </button>
+    {/if}
   {/snippet}
 
   {#if templatesStore.loading && templatesStore.templates.length === 0}
@@ -146,4 +188,24 @@
   .tpl-skills { display: flex; gap: 4px; flex-wrap: wrap; }
   .tpl-skill { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--dbg3); color: var(--dt3); }
   .tpl-skill-more { font-size: 10px; color: var(--dt4); }
+  .tpl-deploy-btn {
+    height: 28px; padding: 0 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
+    font-family: var(--font-sans); cursor: pointer; white-space: nowrap;
+    display: flex; align-items: center; gap: 6px;
+    background: color-mix(in srgb, #6366f1 20%, transparent);
+    border: 1px solid color-mix(in srgb, #6366f1 45%, transparent);
+    color: #a5b4fc;
+    transition: all 120ms ease;
+  }
+  .tpl-deploy-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, #6366f1 30%, transparent);
+    border-color: color-mix(in srgb, #6366f1 60%, transparent);
+    color: #c7d2fe;
+  }
+  .tpl-deploy-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+  .tpl-deploy-spinner {
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 1.5px solid rgba(165, 180, 252, 0.3); border-top-color: #a5b4fc;
+    animation: spin 0.7s linear infinite; flex-shrink: 0;
+  }
 </style>

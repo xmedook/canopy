@@ -64,6 +64,7 @@ defmodule CanopyWeb.ScheduleController do
 
     case Repo.insert(changeset) do
       {:ok, schedule} ->
+        schedule = persist_next_run_at(schedule)
         if schedule.enabled, do: Canopy.Scheduler.add_schedule(schedule)
         conn |> put_status(201) |> json(%{schedule: serialize(schedule, 0)})
 
@@ -123,8 +124,10 @@ defmodule CanopyWeb.ScheduleController do
       schedule ->
         now = DateTime.utc_now() |> DateTime.truncate(:second)
 
+        next_run = compute_next_run_at(schedule.cron_expression)
+
         case schedule
-             |> Ecto.Changeset.change(last_run_at: now, last_run_status: "triggered")
+             |> Ecto.Changeset.change(last_run_at: now, last_run_status: "triggered", next_run_at: next_run)
              |> Repo.update() do
           {:ok, updated} ->
             Canopy.EventBus.broadcast(
@@ -216,5 +219,37 @@ defmodule CanopyWeb.ScheduleController do
         opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
       end)
     end)
+  end
+
+  # Computes the next DateTime after `now` for the given cron expression.
+  # Returns nil when the expression cannot be parsed (non-fatal — field stays nil).
+  defp compute_next_run_at(cron_expression) when is_binary(cron_expression) do
+    case Crontab.CronExpression.Parser.parse(cron_expression) do
+      {:ok, cron} ->
+        cron
+        |> Crontab.Scheduler.get_next_run_date!(DateTime.utc_now() |> DateTime.to_naive())
+        |> DateTime.from_naive!("Etc/UTC")
+        |> DateTime.truncate(:second)
+
+      {:error, _reason} ->
+        nil
+    end
+  end
+
+  defp compute_next_run_at(_), do: nil
+
+  # Persists next_run_at on an already-inserted schedule.  Silently skips on
+  # parse failure so a bad cron expression does not block schedule creation.
+  defp persist_next_run_at(%Schedule{} = schedule) do
+    case compute_next_run_at(schedule.cron_expression) do
+      nil ->
+        schedule
+
+      next_run ->
+        case schedule |> Ecto.Changeset.change(next_run_at: next_run) |> Repo.update() do
+          {:ok, updated} -> updated
+          {:error, _} -> schedule
+        end
+    end
   end
 end

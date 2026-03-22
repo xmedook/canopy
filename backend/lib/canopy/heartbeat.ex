@@ -48,6 +48,19 @@ defmodule Canopy.Heartbeat do
           create_session!(agent, schedule_id)
         end
 
+      # Resolve workspace early so that any failure (missing path, bad config)
+      # is caught here — before we set the agent to "working" — allowing
+      # fail_session! to run and preventing a stuck "active" session.
+      workspace =
+        try do
+          resolve_workspace(agent)
+        rescue
+          e ->
+            fail_session!(session, Exception.message(e))
+            agent |> change(status: "error") |> Repo.update!()
+            raise e
+        end
+
       agent |> change(status: "working") |> Repo.update!()
 
       broadcast_workspace(agent, %{
@@ -73,8 +86,6 @@ defmodule Canopy.Heartbeat do
           end
         end)
       end
-
-      workspace = resolve_workspace(agent)
 
       # Prepend system prompt to context if agent has one
       full_context =
@@ -201,6 +212,7 @@ defmodule Canopy.Heartbeat do
       completed_at: DateTime.utc_now() |> DateTime.truncate(:second),
       tokens_input: totals.input,
       tokens_output: totals.output,
+      tokens_cache: totals.cache,
       cost_cents: totals.cost
     })
     |> Repo.update!()
@@ -249,7 +261,7 @@ defmodule Canopy.Heartbeat do
   defp execute_and_stream(adapter_mod, params, session, agent) do
     try do
       adapter_mod.execute_heartbeat(params)
-      |> Enum.reduce(%{input: 0, output: 0, cost: 0}, fn event, acc ->
+      |> Enum.reduce(%{input: 0, output: 0, cache: 0, cost: 0}, fn event, acc ->
         persist_event!(event, session)
 
         Canopy.EventBus.broadcast(
@@ -262,15 +274,17 @@ defmodule Canopy.Heartbeat do
           }
         )
 
-        # Adapters emit tokens_input and tokens_output (or legacy :tokens)
+        # Adapters emit tokens_input, tokens_output, tokens_cache (or legacy :tokens)
         input_tokens = event[:tokens_input] || event[:tokens] || 0
         output_tokens = event[:tokens_output] || 0
+        cache_tokens = event[:tokens_cache] || 0
 
         new_input = acc.input + input_tokens
         new_output = acc.output + output_tokens
+        new_cache = acc.cache + cache_tokens
         cost = estimate_cost(new_input, new_output, agent.model)
 
-        %{acc | input: new_input, output: new_output, cost: cost}
+        %{acc | input: new_input, output: new_output, cache: new_cache, cost: cost}
       end)
     rescue
       e ->
@@ -279,7 +293,7 @@ defmodule Canopy.Heartbeat do
             Exception.format_stacktrace(__STACKTRACE__)
         )
 
-        %{input: 0, output: 0, cost: 0}
+        %{input: 0, output: 0, cache: 0, cost: 0}
     end
   end
 

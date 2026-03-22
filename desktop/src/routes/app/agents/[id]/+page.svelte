@@ -9,13 +9,24 @@
   import TimeAgo from '$lib/components/shared/TimeAgo.svelte';
   import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
   import { agentsStore } from '$lib/stores/agents.svelte';
-  import type { CanopyAgent, AgentStatus, AgentLifecycleAction } from '$api/types';
+  import { sessions as sessionsApi, inbox as inboxApi } from '$api/client';
+  import type { CanopyAgent, AgentStatus, AgentLifecycleAction, Session, InboxItem } from '$api/types';
 
   const agentId = $derived($page.params.id ?? '');
 
   let agent = $state<CanopyAgent | null>(null);
   let isLoading = $state(true);
   let activeTab = $state<'overview' | 'config' | 'schedules' | 'skills' | 'runs' | 'budget' | 'inbox'>('overview');
+
+  // Runs tab state
+  let runs = $state<Session[]>([]);
+  let runsLoading = $state(false);
+  let runsFetched = $state(false);
+
+  // Inbox tab state
+  let inboxItems = $state<InboxItem[]>([]);
+  let inboxLoading = $state(false);
+  let inboxFetched = $state(false);
 
   const TABS = [
     { id: 'overview'  as const, label: 'Overview'  },
@@ -37,6 +48,35 @@
     // Keep agent in sync when store updates
     const fresh = agentsStore.getById(agentId);
     if (fresh) agent = fresh;
+  });
+
+  $effect(() => {
+    // Fetch runs when the tab becomes active (once per page load)
+    if (activeTab === 'runs' && !runsFetched && agentId) {
+      runsFetched = true;
+      runsLoading = true;
+      void sessionsApi.list().then((all) => {
+        runs = all.filter((s) => s.agent_id === agentId);
+        runsLoading = false;
+      }).catch(() => {
+        runsLoading = false;
+      });
+    }
+  });
+
+  $effect(() => {
+    // Fetch inbox items when the tab becomes active (once per page load)
+    if (activeTab === 'inbox' && !inboxFetched && agent) {
+      inboxFetched = true;
+      inboxLoading = true;
+      const agentName = agent.display_name || agent.name;
+      void inboxApi.list().then((all) => {
+        inboxItems = all.filter((i) => i.source_agent === agentName);
+        inboxLoading = false;
+      }).catch(() => {
+        inboxLoading = false;
+      });
+    }
   });
 
   function statusToDot(s: AgentStatus): 'online' | 'idle' | 'busy' | 'error' | 'offline' | 'sleeping' {
@@ -403,10 +443,46 @@
           aria-label="Runs tab"
           class="ad-panel"
         >
-          <div class="ad-empty-tab" role="status">
-            <span class="ad-empty-icon" aria-hidden="true">🏃</span>
-            <p>Run history will appear here once the agent executes heartbeat tasks.</p>
-          </div>
+          {#if runsLoading}
+            <div class="ad-empty-tab" role="status" aria-live="polite">
+              <LoadingSpinner size="sm" />
+              <span>Loading runs…</span>
+            </div>
+          {:else if runs.length === 0}
+            <div class="ad-empty-tab" role="status">
+              <span class="ad-empty-icon" aria-hidden="true">🏃</span>
+              <p>No runs yet.</p>
+            </div>
+          {:else}
+            <section class="ad-card" aria-label="Agent runs">
+              <h2 class="ad-card-title">Runs ({runs.length})</h2>
+              <div class="ad-runs-list" role="list" aria-label="Session runs">
+                {#each runs as run (run.id)}
+                  <div class="ad-run-row" role="listitem">
+                    <div class="ad-run-status-col">
+                      <span
+                        class="ad-run-dot"
+                        class:ad-run-dot--active={run.status === 'active'}
+                        class:ad-run-dot--completed={run.status === 'completed'}
+                        class:ad-run-dot--failed={run.status === 'failed'}
+                        aria-hidden="true"
+                      ></span>
+                      <span class="ad-run-status">{run.status}</span>
+                    </div>
+                    <div class="ad-run-meta">
+                      <span class="ad-run-title">{run.title ?? run.id}</span>
+                      <span class="ad-run-detail">
+                        <TimeAgo date={run.started_at} />
+                        · {formatTokens(run.token_usage.input + run.token_usage.output)} tokens
+                        · {formatCost(run.cost_cents)}
+                      </span>
+                    </div>
+                    <span class="ad-run-model">{run.message_count} msgs</span>
+                  </div>
+                {/each}
+              </div>
+            </section>
+          {/if}
         </div>
 
       <!-- BUDGET -->
@@ -450,10 +526,37 @@
           aria-label="Inbox tab"
           class="ad-panel"
         >
-          <div class="ad-empty-tab" role="status">
-            <span class="ad-empty-icon" aria-hidden="true">📬</span>
-            <p>No inbox items for this agent.</p>
-          </div>
+          {#if inboxLoading}
+            <div class="ad-empty-tab" role="status" aria-live="polite">
+              <LoadingSpinner size="sm" />
+              <span>Loading notifications…</span>
+            </div>
+          {:else if inboxItems.length === 0}
+            <div class="ad-empty-tab" role="status">
+              <span class="ad-empty-icon" aria-hidden="true">📬</span>
+              <p>No notifications.</p>
+            </div>
+          {:else}
+            <section class="ad-card" aria-label="Agent inbox">
+              <h2 class="ad-card-title">Notifications ({inboxItems.length})</h2>
+              <div class="ad-inbox-list" role="list" aria-label="Inbox notifications">
+                {#each inboxItems as item (item.id)}
+                  <div
+                    class="ad-inbox-row"
+                    class:ad-inbox-row--unread={item.status === 'unread'}
+                    role="listitem"
+                  >
+                    <div class="ad-inbox-meta">
+                      <span class="ad-inbox-type ad-inbox-type--{item.type}">{item.type.replace('_', ' ')}</span>
+                      <span class="ad-inbox-time"><TimeAgo date={item.created_at} /></span>
+                    </div>
+                    <p class="ad-inbox-title">{item.title}</p>
+                    <p class="ad-inbox-body">{item.body}</p>
+                  </div>
+                {/each}
+              </div>
+            </section>
+          {/if}
         </div>
       {/if}
 
@@ -929,5 +1032,143 @@
 
   .ad-link:hover {
     text-decoration: underline;
+  }
+
+  /* Runs list */
+  .ad-runs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .ad-run-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .ad-run-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .ad-run-status-col {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 90px;
+    flex-shrink: 0;
+  }
+
+  .ad-run-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border-default);
+    flex-shrink: 0;
+  }
+
+  .ad-run-dot--active    { background: #22c55e; box-shadow: 0 0 5px rgba(34, 197, 94, 0.5); }
+  .ad-run-dot--completed { background: #60a5fa; }
+  .ad-run-dot--failed    { background: #f87171; }
+
+  .ad-run-status {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-transform: capitalize;
+  }
+
+  .ad-run-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .ad-run-title {
+    font-size: 13px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ad-run-detail {
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  .ad-run-model {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  /* Inbox list */
+  .ad-inbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .ad-inbox-row {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .ad-inbox-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .ad-inbox-row--unread .ad-inbox-title {
+    font-weight: 600;
+  }
+
+  .ad-inbox-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .ad-inbox-type {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: capitalize;
+    background: var(--bg-secondary);
+    color: var(--text-tertiary);
+    border: 1px solid var(--border-default);
+  }
+
+  .ad-inbox-type--approval     { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.25); color: #93c5fd; }
+  .ad-inbox-type--alert        { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25); color: #f87171; }
+  .ad-inbox-type--failure      { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25); color: #f87171; }
+  .ad-inbox-type--budget_warning { background: rgba(234, 179, 8, 0.1); border-color: rgba(234, 179, 8, 0.25); color: #fde047; }
+  .ad-inbox-type--mention      { background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.25); color: #c4b5fd; }
+  .ad-inbox-type--report       { background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.25); color: #86efac; }
+
+  .ad-inbox-time {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-left: auto;
+  }
+
+  .ad-inbox-title {
+    font-size: 13px;
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
+  }
+
+  .ad-inbox-body {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    line-height: 1.5;
+    margin: 0;
   }
 </style>
