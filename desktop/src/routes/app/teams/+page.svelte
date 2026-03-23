@@ -78,6 +78,35 @@
     return name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
   }
 
+  // Add member dialog
+  let showAddMember = $state(false);
+  let addMemberTeamId = $state('');
+  let addMemberAgentId = $state('');
+  let addMemberRole = $state<'member' | 'manager'>('member');
+  let addingMember = $state(false);
+
+  function openAddMember(teamId: string): void {
+    addMemberTeamId = teamId;
+    addMemberAgentId = '';
+    addMemberRole = 'member';
+    showAddMember = true;
+  }
+
+  async function handleAddMember(): Promise<void> {
+    if (!addMemberTeamId || !addMemberAgentId) return;
+    addingMember = true;
+    const ok = await hierarchyStore.addTeamMember(addMemberTeamId, addMemberAgentId, addMemberRole);
+    addingMember = false;
+    if (ok) {
+      showAddMember = false;
+      // Refresh members for this team
+      const agents = await teamsApi.agents(addMemberTeamId);
+      const next = new Map(teamMembers);
+      next.set(addMemberTeamId, agents);
+      teamMembers = next;
+    }
+  }
+
   // Create dialog
   let showCreate = $state(false);
   let createName = $state('');
@@ -249,7 +278,7 @@
                   <span class="tm-members-title">Members</span>
                   <button
                     class="tm-btn tm-btn--sm"
-                    onclick={() => {/* TODO: add member dialog */}}
+                    onclick={() => openAddMember(team.id)}
                     aria-label="Add member to {team.name}"
                   >
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -371,6 +400,49 @@
               aria-busy={creating}
             >
               {creating ? 'Creating…' : 'Create Team'}
+            </button>
+          </footer>
+        </div>
+      </div>
+    {/if}
+
+    <!-- Add Member dialog -->
+    {#if showAddMember}
+      <div class="tm-overlay" role="dialog" aria-modal="true" aria-label="Add team member">
+        <div class="tm-dialog">
+          <header class="tm-dialog-header">
+            <h2 class="tm-dialog-title">Add Team Member</h2>
+            <button class="tm-dialog-close" onclick={() => (showAddMember = false)} aria-label="Close">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </header>
+          <div class="tm-dialog-body">
+            <label class="tm-field">
+              <span class="tm-label">Agent <span class="tm-required" aria-hidden="true">*</span></span>
+              <select class="tm-input" bind:value={addMemberAgentId} aria-required="true" aria-label="Select agent">
+                <option value="" disabled selected>Select an agent…</option>
+                {#each agentsStore.agents as agent (agent.id)}
+                  <option value={agent.id}>{agent.display_name || agent.name} — {agent.role}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="tm-field">
+              <span class="tm-label">Role</span>
+              <select class="tm-input" bind:value={addMemberRole} aria-label="Member role">
+                <option value="member">Member</option>
+                <option value="manager">Manager</option>
+              </select>
+            </label>
+          </div>
+          <footer class="tm-dialog-footer">
+            <button class="tm-btn tm-btn--ghost" onclick={() => (showAddMember = false)}>Cancel</button>
+            <button
+              class="tm-btn tm-btn--primary"
+              onclick={handleAddMember}
+              disabled={addingMember || !addMemberAgentId}
+              aria-busy={addingMember}
+            >
+              {addingMember ? 'Adding…' : 'Add Member'}
             </button>
           </footer>
         </div>

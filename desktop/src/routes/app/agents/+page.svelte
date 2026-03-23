@@ -8,11 +8,19 @@
   import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
   import { agentsStore } from '$lib/stores/agents.svelte';
   import { workspaceStore } from '$lib/stores/workspace.svelte';
+  import { goto } from '$app/navigation';
 
   // Re-fetch whenever the active workspace changes (including after backend sync)
   $effect(() => {
     const wsId = workspaceStore.activeWorkspaceId ?? undefined;
     void agentsStore.fetchAgents(wsId);
+  });
+
+  // Redirect org view to the real hierarchy page
+  $effect(() => {
+    if (agentsStore.viewMode === 'org') {
+      void goto('/app/hierarchy');
+    }
   });
 
   let showHireDialog = $state(false);
@@ -57,7 +65,7 @@
       {:else}
         <div class="ar-org-placeholder" role="status">
           <span class="ar-empty-icon" aria-hidden="true">🌐</span>
-          <p class="ar-empty-text">Org chart view coming soon.</p>
+          <p class="ar-empty-text">Redirecting to hierarchy view…</p>
         </div>
       {/if}
     {/if}

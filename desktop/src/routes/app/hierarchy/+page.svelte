@@ -20,6 +20,45 @@
   let collapsedDivisions = $state<Set<string>>(new Set());
   let collapsedDepartments = $state<Set<string>>(new Set());
 
+  // Add Division dialog
+  let showAddDivision = $state(false);
+  let divName = $state('');
+  let divSlug = $state('');
+  let divDesc = $state('');
+  let divCreating = $state(false);
+
+  function slugify(s: string): string {
+    return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  }
+
+  function onDivNameInput(e: Event): void {
+    divName = (e.target as HTMLInputElement).value;
+    if (!divSlug || divSlug === slugify(divName.slice(0, -1))) {
+      divSlug = slugify(divName);
+    }
+  }
+
+  async function handleAddDivision(): Promise<void> {
+    const org = organizationsStore.current;
+    if (!org || !divName.trim()) return;
+    divCreating = true;
+    const result = await hierarchyStore.createDivision({
+      name: divName.trim(),
+      slug: divSlug.trim() || slugify(divName.trim()),
+      description: divDesc.trim() || null,
+      organization_id: org.id,
+    });
+    divCreating = false;
+    if (result) {
+      showAddDivision = false;
+      divName = '';
+      divSlug = '';
+      divDesc = '';
+      // Refresh tree
+      void hierarchyStore.fetchTree(org.id);
+    }
+  }
+
   function toggleDivision(id: string): void {
     const next = new Set(collapsedDivisions);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -51,7 +90,7 @@
   {#snippet actions()}
     <button
       class="hc-btn hc-btn--primary"
-      onclick={() => {/* TODO: add division dialog */}}
+      onclick={() => (showAddDivision = true)}
       aria-label="Add division"
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -246,6 +285,40 @@
     {/if}
   {/snippet}
 </PageShell>
+
+<!-- Add Division dialog -->
+{#if showAddDivision}
+  <div class="hc-overlay" role="dialog" aria-modal="true" aria-label="Add division">
+    <div class="hc-dialog">
+      <header class="hc-dialog-header">
+        <h2 class="hc-dialog-title">New Division</h2>
+        <button class="hc-dialog-close" onclick={() => (showAddDivision = false)} aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </header>
+      <div class="hc-dialog-body">
+        <label class="hc-field">
+          <span class="hc-label">Name <span class="hc-required" aria-hidden="true">*</span></span>
+          <input class="hc-input" type="text" placeholder="e.g. Engineering" value={divName} oninput={onDivNameInput} aria-required="true" />
+        </label>
+        <label class="hc-field">
+          <span class="hc-label">Slug</span>
+          <input class="hc-input" type="text" placeholder="auto-generated" bind:value={divSlug} />
+        </label>
+        <label class="hc-field">
+          <span class="hc-label">Description</span>
+          <textarea class="hc-input hc-textarea" placeholder="Optional…" bind:value={divDesc} rows={3}></textarea>
+        </label>
+      </div>
+      <footer class="hc-dialog-footer">
+        <button class="hc-btn hc-btn--ghost" onclick={() => (showAddDivision = false)}>Cancel</button>
+        <button class="hc-btn hc-btn--primary" onclick={handleAddDivision} disabled={divCreating || !divName.trim()} aria-busy={divCreating}>
+          {divCreating ? 'Creating…' : 'Create Division'}
+        </button>
+      </footer>
+    </div>
+  </div>
+{/if}
 
 <style>
   /* ── Loading & Empty ────────────────────────────────────────────────────── */
@@ -548,5 +621,116 @@
     background: var(--bg-hover, var(--bg-elevated));
     color: var(--text-tertiary);
     font-size: 8px;
+  }
+
+  /* ── Dialog ─────────────────────────────────────────────────────────────── */
+  .hc-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .hc-dialog {
+    background: var(--bg-surface, var(--bg-elevated));
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+    width: 420px;
+    max-width: calc(100vw - 32px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .hc-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .hc-dialog-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .hc-dialog-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+  }
+
+  .hc-dialog-close:hover { color: var(--text-primary); }
+
+  .hc-dialog-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .hc-dialog-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border-default);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .hc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .hc-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .hc-required { color: var(--accent-primary); }
+
+  .hc-input {
+    padding: 8px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--text-primary);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+
+  .hc-input:focus { border-color: var(--accent-primary); }
+
+  .hc-textarea {
+    resize: vertical;
+    min-height: 72px;
+  }
+
+  .hc-btn--ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border-default);
+  }
+
+  .hc-btn--ghost:hover { background: var(--bg-elevated); }
+
+  .hc-btn--primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>
