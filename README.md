@@ -5,7 +5,7 @@
 > Open-source workspace protocol and command center for AI agent systems.
 > Build autonomous AI companies — not chatbots.
 
-Canopy is a workspace protocol that turns folders of markdown into fully operational AI companies. Define agents, skills, teams, budgets, and governance in plain files — then connect any AI backend (Claude Code, OSA, Codex, Gemini, Cursor) and watch them work autonomously on heartbeat schedules.
+Canopy is a workspace protocol that turns folders of markdown into fully operational AI companies. Define agents, skills, teams, budgets, and governance in plain files — then connect any AI backend (Claude Code, OSA, Codex, Gemini, Cursor, Aider, Windsurf) and watch them work autonomously on heartbeat schedules.
 
 The desktop command center gives you a native app to hire from 330+ agents, watch them collaborate in a pixel-art virtual office, monitor token costs in real-time, and intervene when needed.
 
@@ -54,20 +54,24 @@ Pick Workspace (sales-engine, dev-shop, content-factory, cognitive-os, custom)
         |
         v
 Backend API  (Elixir + Phoenix on :9089)
-        |-- Agent discovery (reads SYSTEM.md)
-        |-- Skill registry
-        |-- Team management
-        |-- Autonomy orchestration
+        |-- 54 controllers, 56 schemas, 67 migrations, ~151 routes
+        |-- Agent lifecycle (heartbeat, sessions, budgets, governance)
+        |-- Workflow engine (7 step types, DAG execution, cron scheduling)
+        |-- Dynamic dispatch (content-based adapter routing)
+        |-- 5-layer org hierarchy (Company → Division → Department → Team → Agent)
         |
         v
 Desktop Command Center  (SvelteKit 2 + Tauri 2 on :5200)
+        |-- 56 pages, 20 component groups, 48 stores
         |-- Dashboard (KPIs, active agents, budget burn)
-        |-- Virtual Office (pixel-art team visualization)
-        |-- Agent Roster (hire from 330+ agents)
-        |-- Sessions (live chat, tool inspection)
-        |-- Library (agents, skills, templates)
-        |-- Cost Console (per-agent token spend)
-        |-- Integrations (OSA, Claude Code, Codex, etc.)
+        |-- Virtual Office (pixel-art 2D + 3D team visualization)
+        |-- Agent Roster (hire from 330+ agents across 19 categories)
+        |-- Sessions (live chat, tool inspection, session chains)
+        |-- Workflow Designer (multi-step DAG workflows)
+        |-- Cost Console (per-agent token spend, budget enforcement)
+        |-- Library & Marketplace (agents, skills, templates, companies)
+        |-- Reports & Analytics (6 report types, scheduled generation)
+        |-- Governance (approval gates, audit trail, access control)
         |
         v
 Connected Agents (Claude Code, OSA, Cursor, Codex, Gemini, Aider, Windsurf, OpenClaw)
@@ -78,10 +82,11 @@ Connected Agents (Claude Code, OSA, Cursor, Codex, Gemini, Aider, Windsurf, Open
 | Layer | Technology |
 |-------|-----------|
 | Backend | Elixir 1.15 + Phoenix 1.8.5 |
-| Database | PostgreSQL |
-| Frontend | SvelteKit 2 + Tauri 2 |
+| Database | PostgreSQL (67 migrations, 56 schemas) |
+| Frontend | SvelteKit 2 + Svelte 5 + Tauri 2 |
 | Auth | Guardian + JWT + Bcrypt |
 | Scheduler | Quantum |
+| Real-time | Phoenix PubSub + SSE |
 | Backend port | `:9089` |
 | Desktop port | `:5200` |
 | OSA port | `:8089` |
@@ -125,30 +130,65 @@ Each agent file defines role, tools, coordination rules, escalation path, and he
 
 ### Heartbeat Protocol
 
-Agents wake on schedule, check for work, execute, and delegate autonomously.
+Agents wake on schedule, check for work, execute, and delegate autonomously. The heartbeat is a 9-step GenServer cycle with atomic checkout, governance gate checks, and session continuity:
 
 ```
 Agent wakes (schedule, task assignment, or mention)
   -> Retrieves identity and role
-  -> Checks pending approvals
+  -> Checks governance gates (pending approvals block execution)
+  -> Loads continuation context from previous session
+  -> Resolves adapter (override → content router → agent default)
   -> Fetches assigned tasks (sorted by priority)
   -> Atomic checkout (prevents double-work)
-  -> Executes task
-  -> Comments on progress
-  -> Delegates subtasks to reports
+  -> Executes via resolved adapter
+  -> Comments on progress, delegates subtasks
+  -> Compacts session (summary + handoff for next heartbeat)
   -> Sleeps until next heartbeat
 ```
+
+### Session Persistence & Continuity
+
+Agents resume context across heartbeats instead of starting cold:
+
+- **Session chains** — linked sessions with `parent_session_id` and `sequence_number` tracking full execution history
+- **Automatic compaction** — after each heartbeat, the Compactor extracts structured facts (tools used, errors, outputs, decisions) into a summary
+- **Handoff generation** — markdown handoff document with pending items, key decisions, blockers, and continuation state
+- **Cross-heartbeat injection** — next heartbeat loads the previous session's handoff as context preamble
+- **Chain queries** — `GET /sessions/:id/chain` returns full session lineage with cumulative token usage
+- **Manual compaction** — `POST /sessions/:id/compact` triggers on-demand summarization
 
 ### Multi-Agent Coordination
 
 Tasks are the communication protocol. No agent-to-agent messaging required.
 
-- **Delegation** — create a child task assigned to a report
+- **Delegation** — create a child task assigned to a report, with adapter-aware routing
 - **Status** — modify task fields
 - **Escalation** — traverse parent chain up to orchestrator
 - **Atomic checkout** — only one agent works on a task at a time (409 = move on)
 
-Task hierarchy: Initiatives -> Projects -> Milestones -> Issues -> Sub-issues. Every task traces back to a company goal.
+Task hierarchy: Initiatives → Projects → Milestones → Issues → Sub-issues. Every task traces back to a company goal.
+
+### Dynamic Adapter Dispatch
+
+One orchestrator dispatches work to different runtimes based on task content. The dispatch router uses a three-tier priority waterfall:
+
+```
+1. Task adapter_override   (explicit per-task)
+2. Content-based routing   (label + regex matching)
+3. Agent default adapter   (fallback)
+```
+
+Content patterns route automatically:
+
+```
+/delegate "Write the API spec"    → Claude Code (deep reasoning)
+/delegate "Refactor 50 files"     → Codex (bulk code changes)
+/delegate "Analyze screenshots"   → Gemini (multimodal)
+/delegate "Run test suite"        → Bash (shell process)
+/delegate "Check production"      → HTTP (webhook)
+```
+
+The delegation system creates subtasks with automatic adapter selection, finding idle agents that match the inferred adapter type. Preview endpoint available at `POST /dispatch/preview` for dry-run routing.
 
 ### Budget Enforcement
 
@@ -160,40 +200,63 @@ Three tiers — visibility, soft alert, hard ceiling:
 | 80% | Soft alert — agent warned to focus on critical tasks only |
 | 100% | Hard stop — auto-pause, approval required to resume |
 
-Tracks tokens and dollars. Rollup at any level. Enforced at every execution boundary — scheduler, manual invoke, task checkout.
+Tracks tokens and dollars. Rollup at any level (agent, team, department, division, organization). Enforced at every execution boundary — scheduler, manual invoke, task checkout. ETS atomic counters for lock-free performance.
 
-### Governance
+### Governance Gates
 
-You operate as the board of directors:
+Approval enforcement integrated into the controller pipeline:
 
-- Agents cannot hire new agents without your approval
-- Strategy proposals require board review before execution
-- Budget overrides require explicit authorization
-- Every action logged in an immutable audit trail
-- Approval states: `pending` -> `approved` / `rejected` / `revision requested`
+- **Spawn gate** — agents cannot be created without approval (configurable per workspace)
+- **Delete gate** — agent termination requires authorization
+- **Budget override gate** — exceeding limits requires explicit approval
+- **Strategy gate** — proposals require board review before execution
+- **Heartbeat blocking** — agents with pending approvals are blocked from execution
+- **Auto-execution** — approved actions replay automatically via the Executor
+- **Idempotent** — duplicate pending approvals are deduplicated
 
-### Session Persistence
-
-Agents resume context across heartbeats instead of starting fresh:
-
-- Task-scoped sessions persist across invocations
-- When context fills, generate handoff summary and start fresh
-- Compaction policy (max runs, max tokens, max age) — in development
-- Agent never loses progress — core persistence is live; compaction is being built
-
-### Multi-Runtime Adapter Dispatch
-
-One orchestrator dispatches work to different runtimes based on task type:
+Governance is a Phoenix plug (`CanopyWeb.Plugs.Governance`) that halts with HTTP 202 when an action requires approval. The workspace's `governance` config determines which actions need approval and which roles are auto-approved.
 
 ```
-/delegate "Write the API spec"    -> Claude Code (deep reasoning)
-/delegate "Refactor 50 files"     -> Codex (bulk code changes)
-/delegate "Analyze screenshots"   -> Gemini (multimodal)
-/delegate "Run test suite"        -> Shell process
-/delegate "Check production"      -> HTTP webhook
+POST /spawn  →  Governance plug  →  Gate.check(:spawn_agent)
+                                      |
+                         requires_approval?  →  yes  →  202 {pending_approval}
+                                             →  no   →  :allowed (continue)
 ```
 
-Each runtime is a pluggable adapter behind a standard interface.
+### Organizational Hierarchy
+
+Five-layer structure with cascading budgets:
+
+```
+Organization (billing entity, governance config)
+  └── Division (business unit, head agent, budget)
+        └── Department (functional area, head agent, budget)
+              └── Team (execution unit, manager agent, budget)
+                    └── Agent (individual worker, budget)
+```
+
+Full CRUD at every level. `GET /hierarchy?organization_id=X` returns the complete tree assembled from flat queries. Team memberships tracked via join table with role assignment.
+
+### Workflow Engine
+
+DAG-based workflow execution with 7 step types:
+
+| Step Type | Description |
+|-----------|------------|
+| `agent_task` | Assign work to a specific agent |
+| `approval` | Block until human approves |
+| `condition` | Branch based on previous step output |
+| `transform` | Reshape data between steps |
+| `webhook` | Call external HTTP endpoint |
+| `delay` | Wait for specified duration |
+| `parallel` | Execute multiple steps concurrently |
+
+Workflows support:
+- Topological sort for dependency resolution
+- Retry with configurable backoff (constant, linear, exponential)
+- Cron-based scheduled execution via `Canopy.Workflows.Scheduler`
+- Step-level status tracking (pending → running → completed/failed/skipped)
+- OTP supervision for fault tolerance
 
 ### Agent Commerce _(Planned — requires Stripe MPP integration)_
 
@@ -204,6 +267,31 @@ Canopy's budget enforcement will wrap around MPP:
 - **Under threshold** — agent pays autonomously, logged to budget
 - **Over threshold** — payment queued for human approval
 - **Over budget** — hard stop, no payment authorized
+
+---
+
+## Desktop Command Center
+
+56 pages organized into functional clusters:
+
+| Cluster | Pages |
+|---------|-------|
+| **Daily** | Dashboard, Inbox, Chat, Virtual Office |
+| **Work** | Issues, Projects, Goals, Work Products, Workflows |
+| **Agents** | Agent Roster, Agent Detail, Spawn, Sessions, Schedules |
+| **Data** | Memory, Documents, Datasets, Signals, Templates |
+| **Observe** | Activity, Logs, Analytics, Costs, Reports, Alerts, Audit |
+| **Automate** | Skills, Integrations, Webhooks, Plugins, Gateways |
+| **Library** | Agent Marketplace, Skills, Companies, Teams (with detail pages) |
+| **System** | Organizations, Hierarchy, Divisions, Departments, Teams, Users, Access, Config, Secrets, Environment |
+
+### Virtual Office
+
+Pixel-art 2D grid view and optional 3D scene (Three.js via Threlte) showing agents at desks. Agents glow when active, bob when working, and display current task in a speech bubble. Click to inspect or intervene.
+
+### Mock-First Development
+
+57 mock API modules provide complete frontend functionality without a backend connection. Every API endpoint has a corresponding mock handler with realistic data, enabling offline development and demo mode.
 
 ---
 
@@ -349,6 +437,8 @@ Canopy dispatches work to any connected runtime. Eleven adapters — five fully 
 
 The Command Center auto-detects installed adapters and provides one-click setup wizards. Provider credentials are stored in the OS keychain via Tauri's secure store.
 
+All adapters implement the `Canopy.Adapter` behaviour: `execute/2`, `stream/2`, `health/1`, `capabilities/0`.
+
 ---
 
 ## Pre-Built Workspaces
@@ -360,6 +450,38 @@ The Command Center auto-detects installed adapters and provides one-click setup 
 | `content-factory` | Content production: strategy, writing, editing, publishing |
 | `cognitive-os` | Personal second brain: capture, process, connect, retrieve |
 | `custom` | Blank slate with full scaffolding |
+
+---
+
+## Backend API
+
+### Scope
+
+| Metric | Count |
+|--------|-------|
+| Controllers | 54 |
+| Schemas | 56 |
+| Migrations | 67 |
+| Routes | ~151 |
+| Adapters | 11 |
+
+### Key Subsystems
+
+| Module | Purpose |
+|--------|---------|
+| `Canopy.Heartbeat` | 9-step agent execution cycle with Quantum scheduling |
+| `Canopy.BudgetEnforcer` | ETS atomic counters, 5-level cascade, hard stop enforcement |
+| `Canopy.Governance.Gate` | Plug-based approval enforcement on spawn/delete/budget/strategy |
+| `Canopy.Governance.Executor` | Replays approved actions (spawn, delete, budget override) |
+| `Canopy.Dispatch.Router` | Content-based adapter routing with label + regex matching |
+| `Canopy.Dispatch.Delegation` | Subtask creation with adapter-aware agent selection |
+| `Canopy.Sessions.Compactor` | Session summarization, handoff generation, context injection |
+| `Canopy.Sessions.Chain` | Linked session chains with cumulative token tracking |
+| `Canopy.Workflows.Engine` | DAG workflow execution with topological sort and retry |
+| `Canopy.Workflows.Scheduler` | Cron-based workflow triggering |
+| `Canopy.Notifications.Dispatcher` | Multi-channel notification creation and broadcasting |
+| `Canopy.EventBus` | Phoenix PubSub topic management for real-time updates |
+| `Canopy.IssueDispatcher` | Task assignment with priority queue and team routing |
 
 ---
 
@@ -458,6 +580,9 @@ Architecture reference docs live in `architecture/`:
 - `architecture/governance.md` — approval gate system
 - `architecture/tasks.md` — task coordination protocol
 - `architecture/sessions.md` — session persistence and compaction
+- `architecture/dispatch.md` — dynamic adapter routing
+- `architecture/workflows.md` — DAG workflow engine
+- `architecture/hierarchy.md` — 5-layer organizational structure
 - `architecture/processing-pipeline.md` — 6R knowledge pipeline
 
 ---
