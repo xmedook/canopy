@@ -84,9 +84,16 @@ defmodule CanopyWeb.AuthController do
         })
 
       {:error, changeset} ->
+        errors = format_errors(changeset)
+        message = cond do
+          Map.has_key?(errors, :email) && Enum.any?(errors.email, &String.contains?(&1, "taken")) ->
+            "Este email ya está registrado. Intenta iniciar sesión."
+          true ->
+            "validation_failed"
+        end
         conn
         |> put_status(422)
-        |> json(%{error: "validation_failed", details: format_errors(changeset)})
+        |> json(%{error: message, details: errors})
     end
   end
 
