@@ -24,6 +24,7 @@ defmodule CanopyWeb.OrganizationController do
 
   def create(conn, params) do
     user_id = params["created_by"] || conn.assigns[:current_user_id]
+    params = maybe_add_slug(params)
     changeset = Organization.changeset(%Organization{}, params)
 
     case Repo.insert(changeset) do
@@ -113,6 +114,18 @@ defmodule CanopyWeb.OrganizationController do
   end
 
   # --- Private helpers ---
+
+  defp maybe_add_slug(%{"slug" => slug} = params) when is_binary(slug) and slug != "", do: params
+  defp maybe_add_slug(params) do
+    name = params["name"] || "org"
+    slug = name
+      |> String.downcase()
+      |> String.replace(~r/[^a-z0-9]+/, "-")
+      |> String.trim("-")
+    # Append random suffix to avoid collisions
+    suffix = :crypto.strong_rand_bytes(3) |> Base.encode16(case: :lower)
+    Map.put(params, "slug", "#{slug}-#{suffix}")
+  end
 
   defp serialize(%Organization{} = o) do
     %{
