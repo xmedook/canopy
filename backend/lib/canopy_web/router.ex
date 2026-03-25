@@ -39,6 +39,9 @@ defmodule CanopyWeb.Router do
 
     get "/dashboard", DashboardController, :show
 
+    # API Tokens (personal access tokens)
+    resources "/tokens", ApiTokenController, only: [:index, :create, :delete]
+
     # Workspaces
     resources "/workspaces", WorkspaceController, except: [:new, :edit] do
       post "/activate", WorkspaceController, :activate, as: :activate

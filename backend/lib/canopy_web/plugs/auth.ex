@@ -15,6 +15,9 @@ defmodule CanopyWeb.Plugs.Auth do
         |> json(%{error: "unauthorized", code: "INVALID_TOKEN"})
         |> halt()
 
+      "cnpy_" <> _ = raw ->
+        authenticate_api_token(conn, raw)
+
       token ->
         with {:ok, claims} <- Canopy.Guardian.decode_and_verify(token),
              {:ok, user} <- Canopy.Guardian.resource_from_claims(claims) do
@@ -28,6 +31,37 @@ defmodule CanopyWeb.Plugs.Auth do
             |> json(%{error: "unauthorized", code: "INVALID_TOKEN"})
             |> halt()
         end
+    end
+  end
+
+  defp authenticate_api_token(conn, raw) do
+    import Ecto.Query
+    hash = Canopy.Schemas.ApiToken.verify(raw)
+    now = DateTime.utc_now()
+
+    case Canopy.Repo.one(
+      from t in Canopy.Schemas.ApiToken,
+        where: t.token_hash == ^hash and (is_nil(t.expires_at) or t.expires_at > ^now),
+        preload: [:user]
+    ) do
+      nil ->
+        conn
+        |> put_status(401)
+        |> json(%{error: "unauthorized", code: "INVALID_TOKEN"})
+        |> halt()
+
+      api_token ->
+        # Update last_used_at async (non-blocking)
+        spawn(fn ->
+          Canopy.Repo.update_all(
+            from(t in Canopy.Schemas.ApiToken, where: t.id == ^api_token.id),
+            set: [last_used_at: DateTime.truncate(now, :second)]
+          )
+        end)
+
+        conn
+        |> assign(:current_user, api_token.user)
+        |> assign(:claims, %{"role" => api_token.user.role})
     end
   end
 
