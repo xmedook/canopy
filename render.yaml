@@ -5,7 +5,7 @@ services:
     runtime: elixir
     rootDir: backend
     buildCommand: mix deps.get --only prod && mix compile
-    startCommand: mix phx.server
+    startCommand: mix ecto.migrate && mix phx.server
     healthCheckPath: /api/v1/health
     envVars:
       - key: PHX_SERVER
