@@ -52,7 +52,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: https://canopy-backend.onrender.com
+        value: https://canopy-backend-0r6g.onrender.com
 
 # ── Base de datos PostgreSQL ─────────────────────────────────────────────────
 databases:
