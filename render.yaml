@@ -4,8 +4,8 @@ services:
     name: canopy-backend
     runtime: elixir
     rootDir: backend
-    buildCommand: mix deps.get --only prod && mix compile && mix release
-    startCommand: ./bin/canopy start
+    buildCommand: mix deps.get --only prod && mix compile
+    startCommand: mix phx.server
     healthCheckPath: /api/v1/health
     envVars:
       - key: PHX_SERVER
