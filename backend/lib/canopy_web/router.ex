@@ -28,6 +28,9 @@ defmodule CanopyWeb.Router do
     post "/auth/refresh", AuthController, :refresh
     post "/auth/register", AuthController, :register
     get "/auth/status", AuthController, :status
+
+    # DEV ONLY — remove before production
+    post "/dev/reset", DevController, :reset
   end
 
   # Authenticated API routes
