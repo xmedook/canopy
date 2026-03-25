@@ -1658,17 +1658,24 @@ export const organizations = {
     );
     return data.organizations ?? [];
   },
-  get: (id: string) => request<Organization>(`/organizations/${id}`),
-  create: (body: OrganizationCreateRequest) =>
-    request<Organization>("/organizations", {
+  get: async (id: string): Promise<Organization> => {
+    const data = await request<{ organization: Organization } | Organization>(`/organizations/${id}`);
+    return (data as { organization: Organization }).organization ?? (data as Organization);
+  },
+  create: async (body: OrganizationCreateRequest): Promise<Organization> => {
+    const data = await request<{ organization: Organization }>("/organizations", {
       method: "POST",
       body: JSON.stringify(body),
-    }),
-  update: (id: string, body: Partial<OrganizationCreateRequest>) =>
-    request<Organization>(`/organizations/${id}`, {
+    });
+    return data.organization ?? (data as unknown as Organization);
+  },
+  update: async (id: string, body: Partial<OrganizationCreateRequest>): Promise<Organization> => {
+    const data = await request<{ organization: Organization }>(`/organizations/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
-    }),
+    });
+    return data.organization ?? (data as unknown as Organization);
+  },
   delete: (id: string) =>
     request<void>(`/organizations/${id}`, { method: "DELETE" }),
   members: async (id: string): Promise<OrganizationMembership[]> => {
